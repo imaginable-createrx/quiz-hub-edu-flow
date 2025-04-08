@@ -31,7 +31,18 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const fetchTests = async () => {
       try {
         const { data, error } = await supabase
-          .rpc('get_tests_with_files');
+          .from('tests')
+          .select(`
+            id, 
+            title, 
+            description, 
+            num_questions,
+            duration_minutes,
+            created_at,
+            created_by,
+            test_files (file_path)
+          `)
+          .order('created_at', { ascending: false });
 
         if (error) {
           console.error('Error fetching tests:', error);
@@ -43,7 +54,8 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             id: test.id,
             title: test.title,
             description: test.description || undefined,
-            pdfUrl: test.file_path || '/placeholder.svg',
+            pdfUrl: test.test_files && test.test_files.length > 0 ? 
+              test.test_files[0].file_path : '/placeholder.svg',
             numQuestions: test.num_questions,
             durationMinutes: test.duration_minutes,
             createdAt: test.created_at,
@@ -69,12 +81,21 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const fetchSubmissions = async () => {
       try {
-        // Use an RPC function to fetch submissions with answers
-        let { data, error } = await supabase
-          .rpc('get_submissions_with_answers', {
-            current_user_id: user.id,
-            is_student: user.role === 'student'
-          });
+        // Use a join query to fetch submissions with answers
+        const { data, error } = await supabase
+          .from('submissions')
+          .select(`
+            id,
+            test_id,
+            student_id,
+            submitted_at,
+            score,
+            feedback,
+            graded,
+            answer_images (question_number, image_path)
+          `)
+          .eq(user.role === 'student' ? 'student_id' : 'id', user.role === 'student' ? user.id : 'not.eq.null')
+          .order('submitted_at', { ascending: false });
 
         if (error) {
           console.error('Error fetching submissions:', error);
@@ -128,12 +149,13 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .from('test_files')
         .getPublicUrl(filePath);
 
-      // Save file info to database using RPC
+      // Save file info to database
       const { error: dbError } = await supabase
-        .rpc('insert_test_file', {
-          p_test_id: testId,
-          p_file_path: urlData.publicUrl,
-          p_file_name: file.name
+        .from('test_files')
+        .insert({
+          test_id: testId,
+          file_path: urlData.publicUrl,
+          file_name: file.name
         });
 
       if (dbError) {
@@ -170,12 +192,13 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .from('answer_images')
         .getPublicUrl(filePath);
 
-      // Save file info to database using RPC
+      // Save file info to database
       const { error: dbError } = await supabase
-        .rpc('insert_answer_image', {
-          p_submission_id: submissionId,
-          p_question_number: questionNumber,
-          p_image_path: urlData.publicUrl
+        .from('answer_images')
+        .insert({
+          submission_id: submissionId,
+          question_number: questionNumber,
+          image_path: urlData.publicUrl
         });
 
       if (dbError) {
@@ -197,34 +220,49 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
 
-      // Use RPC function to insert test
+      // Insert test directly
       const { data, error } = await supabase
-        .rpc('insert_test', {
-          p_title: test.title,
-          p_description: test.description || null,
-          p_duration_minutes: test.durationMinutes,
-          p_num_questions: test.numQuestions,
-          p_created_by: user.id
-        });
+        .from('tests')
+        .insert({
+          title: test.title,
+          description: test.description || null,
+          duration_minutes: test.durationMinutes,
+          num_questions: test.numQuestions,
+          created_by: user.id
+        })
+        .select()
+        .single();
 
       if (error) {
         throw error;
       }
 
-      if (data && data.length > 0) {
-        const newTestId = data[0].id;
+      if (data) {
+        const newTestId = data.id;
         toast.success('Test created successfully!');
         
-        // Refresh tests using the RPC function
+        // Refresh tests
         const { data: newTests, error: fetchError } = await supabase
-          .rpc('get_tests_with_files');
+          .from('tests')
+          .select(`
+            id, 
+            title, 
+            description, 
+            num_questions,
+            duration_minutes,
+            created_at,
+            created_by,
+            test_files (file_path)
+          `)
+          .order('created_at', { ascending: false });
 
         if (!fetchError && newTests) {
           const formattedTests: Test[] = newTests.map((test: any) => ({
             id: test.id,
             title: test.title,
             description: test.description || undefined,
-            pdfUrl: test.file_path || '/placeholder.svg',
+            pdfUrl: test.test_files && test.test_files.length > 0 ? 
+              test.test_files[0].file_path : '/placeholder.svg',
             numQuestions: test.num_questions,
             durationMinutes: test.duration_minutes,
             createdAt: test.created_at,
@@ -251,27 +289,39 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
 
-      // Use RPC function to insert submission
+      // Insert submission directly
       const { data, error } = await supabase
-        .rpc('insert_submission', {
-          p_test_id: submission.testId,
-          p_student_id: submission.studentId
-        });
+        .from('submissions')
+        .insert({
+          test_id: submission.testId,
+          student_id: submission.studentId
+        })
+        .select()
+        .single();
 
       if (error) {
         throw error;
       }
 
-      if (data && data.length > 0) {
-        const newSubmissionId = data[0].id;
+      if (data) {
+        const newSubmissionId = data.id;
         toast.success('Test submitted successfully!');
         
         // Refresh submissions
         const { data: newSubmissions, error: fetchError } = await supabase
-          .rpc('get_submissions_with_answers', {
-            current_user_id: user.id,
-            is_student: user.role === 'student'
-          });
+          .from('submissions')
+          .select(`
+            id,
+            test_id,
+            student_id,
+            submitted_at,
+            score,
+            feedback,
+            graded,
+            answer_images (question_number, image_path)
+          `)
+          .eq(user.role === 'student' ? 'student_id' : 'id', user.role === 'student' ? user.id : 'not.eq.null')
+          .order('submitted_at', { ascending: false });
 
         if (!fetchError && newSubmissions) {
           const formattedSubmissions: Submission[] = newSubmissions.map((sub: any) => {
@@ -310,13 +360,15 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return;
       }
 
-      // Use RPC function to grade submission
+      // Update submission directly
       const { error } = await supabase
-        .rpc('grade_submission', {
-          p_submission_id: submissionId,
-          p_score: score,
-          p_feedback: feedback || null
-        });
+        .from('submissions')
+        .update({
+          score,
+          feedback: feedback || null,
+          graded: true
+        })
+        .eq('id', submissionId);
 
       if (error) {
         throw error;

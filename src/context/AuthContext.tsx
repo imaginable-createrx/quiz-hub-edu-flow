@@ -14,6 +14,13 @@ interface AuthContextType {
   register: (email: string, password: string, name: string, role: UserRole) => Promise<void>;
 }
 
+// Define the profile type that our custom RPC function returns
+interface ProfileData {
+  id: string;
+  name: string;
+  role: string;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -33,20 +40,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               // Use the rpc method to run a custom query for profiles
               const { data, error } = await supabase
-                .rpc('get_profile_by_id', { user_id: session.user.id });
+                .from('profiles')
+                .select('id, name, role')
+                .eq('id', session.user.id)
+                .single();
               
               if (error) {
                 console.error('Error fetching user profile:', error);
                 return;
               }
               
-              if (data && data.length > 0) {
-                const profile = data[0];
+              if (data) {
                 setUser({
                   id: session.user.id,
                   email: session.user.email || '',
-                  name: profile.name,
-                  role: profile.role as UserRole
+                  name: data.name,
+                  role: data.role as UserRole
                 });
               }
             } catch (error) {
@@ -66,9 +75,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         
         if (session?.user) {
-          // Use rpc to get profile data
+          // Use public table to get profile data
           const { data, error } = await supabase
-            .rpc('get_profile_by_id', { user_id: session.user.id });
+            .from('profiles')
+            .select('id, name, role')
+            .eq('id', session.user.id)
+            .single();
           
           if (error) {
             console.error('Error fetching user profile:', error);
@@ -76,13 +88,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
           
-          if (data && data.length > 0) {
-            const profile = data[0];
+          if (data) {
             setUser({
               id: session.user.id,
               email: session.user.email || '',
-              name: profile.name,
-              role: profile.role as UserRole
+              name: data.name,
+              role: data.role as UserRole
             });
           }
         }
@@ -110,23 +121,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       if (data.user) {
-        // Use rpc method to get profile
+        // Use standard query to get profile
         const { data: profileData, error: profileError } = await supabase
-          .rpc('get_profile_by_id', { user_id: data.user.id });
+          .from('profiles')
+          .select('id, name, role')
+          .eq('id', data.user.id)
+          .single();
         
         if (profileError) throw profileError;
         
-        if (profileData && profileData.length > 0) {
-          const profile = profileData[0];
-          
+        if (profileData) {
           // Redirect to appropriate dashboard based on role
-          if (profile && profile.role === 'teacher') {
+          if (profileData.role === 'teacher') {
             navigate('/teacher-dashboard');
           } else {
             navigate('/student-dashboard');
           }
           
-          toast.success(`Welcome back, ${profile ? profile.name : ''}!`);
+          toast.success(`Welcome back, ${profileData.name}!`);
         }
       }
     } catch (error) {
