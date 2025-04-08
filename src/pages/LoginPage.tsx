@@ -10,31 +10,60 @@ import MainLayout from '@/components/layout/MainLayout';
 import { toast } from '@/components/ui/sonner';
 import { Lock, Mail, User } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { 
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from '@/components/ui/form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+const registerSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Please enter a valid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  role: z.enum(['teacher', 'student']),
+});
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerPassword, setRegisterPassword] = useState('');
-  const [registerName, setRegisterName] = useState('');
-  const [registerLoading, setRegisterLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email || !password) {
-      toast.error('Please enter both email and password');
-      return;
-    }
-    
+  const loginForm = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const registerForm = useForm<z.infer<typeof registerSchema>>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+      role: 'student',
+    },
+  });
+
+  const onLoginSubmit = async (values: z.infer<typeof loginSchema>) => {
     setIsLoading(true);
     
     try {
-      await login(email, password);
+      await login(values.email, values.password);
       // Navigation is handled in the login function
     } catch (error) {
       console.error('Login error:', error);
@@ -44,59 +73,14 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const loginAsTeacher = async () => {
-    setEmail('teacher@example.com');
-    setPassword('password');
-    
-    setIsLoading(true);
+  const onRegisterSubmit = async (values: z.infer<typeof registerSchema>) => {
     try {
-      await login('teacher@example.com', 'password');
-    } catch (error) {
-      console.error('Login error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loginAsStudent = async () => {
-    setEmail('student@example.com');
-    setPassword('password');
-    
-    setIsLoading(true);
-    try {
-      await login('student@example.com', 'password');
-    } catch (error) {
-      console.error('Login error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!registerEmail || !registerPassword || !registerName) {
-      toast.error('Please fill all registration fields');
-      return;
-    }
-    
-    setRegisterLoading(true);
-    
-    try {
-      // This is a mock registration since we're using fake hardcoded users
-      // In a real app with Supabase, this would call supabase.auth.signUp
-      toast.success('Registration successful! Please use the demo accounts to login.');
+      await register(values.email, values.password, values.name, values.role);
       setIsRegisterOpen(false);
-      
-      // Reset form
-      setRegisterEmail('');
-      setRegisterPassword('');
-      setRegisterName('');
+      registerForm.reset();
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error('Registration failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setRegisterLoading(false);
+      // Toast is shown in the register function
     }
   };
 
@@ -112,71 +96,58 @@ const LoginPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="m@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-                
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Logging in...' : 'Login'}
-                </Button>
-                
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border"></div>
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">
-                      Demo Accounts
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={loginAsTeacher}
-                    disabled={isLoading}
-                  >
-                    Teacher Demo
+              <Form {...loginForm}>
+                <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                  <FormField
+                    control={loginForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="email"
+                              placeholder="m@example.com"
+                              className="pl-10"
+                              disabled={isLoading}
+                            />
+                          </FormControl>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={loginForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="password"
+                              className="pl-10"
+                              disabled={isLoading}
+                            />
+                          </FormControl>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? 'Logging in...' : 'Login'}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={loginAsStudent}
-                    disabled={isLoading}
-                  >
-                    Student Demo
-                  </Button>
-                </div>
-              </form>
+                </form>
+              </Form>
             </CardContent>
             <CardFooter className="flex justify-center border-t p-4">
               <div className="text-center space-y-2">
@@ -205,65 +176,122 @@ const LoginPage: React.FC = () => {
               Enter your details below to create an account
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleRegister} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="register-name">Full Name</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="register-name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={registerName}
-                  onChange={(e) => setRegisterName(e.target.value)}
-                  className="pl-10"
-                  disabled={registerLoading}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="register-email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="register-email"
-                  type="email"
-                  placeholder="m@example.com"
-                  value={registerEmail}
-                  onChange={(e) => setRegisterEmail(e.target.value)}
-                  className="pl-10"
-                  disabled={registerLoading}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="register-password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="register-password"
-                  type="password"
-                  value={registerPassword}
-                  onChange={(e) => setRegisterPassword(e.target.value)}
-                  className="pl-10"
-                  disabled={registerLoading}
-                />
-              </div>
-            </div>
-            <DialogFooter className="mt-6">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsRegisterOpen(false)}
-                disabled={registerLoading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={registerLoading}>
-                {registerLoading ? 'Registering...' : 'Register'}
-              </Button>
-            </DialogFooter>
-          </form>
+          
+          <Form {...registerForm}>
+            <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4 py-4">
+              <FormField
+                control={registerForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <div className="relative">
+                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="John Doe"
+                          className="pl-10"
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={registerForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="email"
+                          placeholder="m@example.com"
+                          className="pl-10"
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={registerForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="password"
+                          className="pl-10"
+                        />
+                      </FormControl>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={registerForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Account Type</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex flex-col space-y-1"
+                      >
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="student" />
+                          </FormControl>
+                          <FormLabel className="font-normal">
+                            Student
+                          </FormLabel>
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="teacher" />
+                          </FormControl>
+                          <FormLabel className="font-normal">
+                            Teacher
+                          </FormLabel>
+                        </FormItem>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter className="mt-6">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsRegisterOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Register
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </MainLayout>

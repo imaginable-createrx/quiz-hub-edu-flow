@@ -11,34 +11,25 @@ export type Database = {
     Tables: {
       answer_images: {
         Row: {
-          filename: string
-          id: number
+          id: string
           image_path: string
-          mimetype: string
-          page_number: number | null
-          storage_path: string
-          submission_id: number
-          uploaded_at: string | null
+          question_number: number
+          submission_id: string
+          uploaded_at: string
         }
         Insert: {
-          filename: string
-          id?: number
+          id?: string
           image_path: string
-          mimetype: string
-          page_number?: number | null
-          storage_path: string
-          submission_id: number
-          uploaded_at?: string | null
+          question_number: number
+          submission_id: string
+          uploaded_at?: string
         }
         Update: {
-          filename?: string
-          id?: number
+          id?: string
           image_path?: string
-          mimetype?: string
-          page_number?: number | null
-          storage_path?: string
-          submission_id?: number
-          uploaded_at?: string | null
+          question_number?: number
+          submission_id?: string
+          uploaded_at?: string
         }
         Relationships: [
           {
@@ -50,40 +41,61 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          name: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          role?: string
+        }
+        Relationships: []
+      }
       submissions: {
         Row: {
           feedback: string | null
-          id: number
+          graded: boolean
+          id: string
           score: number | null
-          status: string | null
-          student_id: number
-          submitted_at: string | null
-          test_id: number
+          student_id: string
+          submitted_at: string
+          test_id: string
         }
         Insert: {
           feedback?: string | null
-          id?: number
+          graded?: boolean
+          id?: string
           score?: number | null
-          status?: string | null
-          student_id: number
-          submitted_at?: string | null
-          test_id: number
+          student_id: string
+          submitted_at?: string
+          test_id: string
         }
         Update: {
           feedback?: string | null
-          id?: number
+          graded?: boolean
+          id?: string
           score?: number | null
-          status?: string | null
-          student_id?: number
-          submitted_at?: string | null
-          test_id?: number
+          student_id?: string
+          submitted_at?: string
+          test_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "submissions_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -97,28 +109,25 @@ export type Database = {
       }
       test_files: {
         Row: {
-          filename: string
-          id: number
-          mimetype: string
-          storage_path: string
-          test_id: number
-          uploaded_at: string | null
+          file_name: string
+          file_path: string
+          id: string
+          test_id: string
+          uploaded_at: string
         }
         Insert: {
-          filename: string
-          id?: number
-          mimetype: string
-          storage_path: string
-          test_id: number
-          uploaded_at?: string | null
+          file_name: string
+          file_path: string
+          id?: string
+          test_id: string
+          uploaded_at?: string
         }
         Update: {
-          filename?: string
-          id?: number
-          mimetype?: string
-          storage_path?: string
-          test_id?: number
-          uploaded_at?: string | null
+          file_name?: string
+          file_path?: string
+          id?: string
+          test_id?: string
+          uploaded_at?: string
         }
         Relationships: [
           {
@@ -132,65 +141,41 @@ export type Database = {
       }
       tests: {
         Row: {
-          created_at: string | null
+          created_at: string
+          created_by: string
           description: string | null
           duration_minutes: number
-          id: number
-          pdf_path: string
-          teacher_id: number
+          id: string
+          num_questions: number
           title: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
+          created_by: string
           description?: string | null
           duration_minutes: number
-          id?: number
-          pdf_path: string
-          teacher_id: number
+          id?: string
+          num_questions: number
           title: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
+          created_by?: string
           description?: string | null
           duration_minutes?: number
-          id?: number
-          pdf_path?: string
-          teacher_id?: number
+          id?: string
+          num_questions?: number
           title?: string
         }
         Relationships: [
           {
-            foreignKeyName: "tests_teacher_id_fkey"
-            columns: ["teacher_id"]
+            foreignKeyName: "tests_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
-      }
-      users: {
-        Row: {
-          email: string
-          id: number
-          password_hash: string
-          role: string
-          username: string
-        }
-        Insert: {
-          email: string
-          id?: number
-          password_hash: string
-          role: string
-          username: string
-        }
-        Update: {
-          email?: string
-          id?: number
-          password_hash?: string
-          role?: string
-          username?: string
-        }
-        Relationships: []
       }
     }
     Views: {
