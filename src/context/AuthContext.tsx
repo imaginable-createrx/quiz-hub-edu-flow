@@ -31,11 +31,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Fetch user profile data
           setTimeout(async () => {
             try {
+              // Use the rpc method to run a custom query for profiles
               const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
+                .rpc('get_profile_by_id', { user_id: session.user.id });
               
               if (error) {
                 console.error('Error fetching user profile:', error);
@@ -67,11 +65,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         
         if (session?.user) {
+          // Use rpc to get profile data
           const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+            .rpc('get_profile_by_id', { user_id: session.user.id });
           
           if (error) {
             console.error('Error fetching user profile:', error);
@@ -112,11 +108,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       if (data.user) {
+        // Use rpc method to get profile
         const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+          .rpc('get_profile_by_id', { user_id: data.user.id });
         
         if (profileError) throw profileError;
         
@@ -152,7 +146,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       toast.success('Registration successful! Please verify your email address.');
-      return data;
     } catch (error) {
       console.error('Registration error:', error);
       toast.error('Registration failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
