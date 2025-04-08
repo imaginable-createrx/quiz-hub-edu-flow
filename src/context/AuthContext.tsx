@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setTimeout(async () => {
             try {
               // Use the rpc method to run a custom query for profiles
-              const { data: profile, error } = await supabase
+              const { data, error } = await supabase
                 .rpc('get_profile_by_id', { user_id: session.user.id });
               
               if (error) {
@@ -40,7 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return;
               }
               
-              if (profile) {
+              if (data && data.length > 0) {
+                const profile = data[0];
                 setUser({
                   id: session.user.id,
                   email: session.user.email || '',
@@ -66,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (session?.user) {
           // Use rpc to get profile data
-          const { data: profile, error } = await supabase
+          const { data, error } = await supabase
             .rpc('get_profile_by_id', { user_id: session.user.id });
           
           if (error) {
@@ -75,7 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
           
-          if (profile) {
+          if (data && data.length > 0) {
+            const profile = data[0];
             setUser({
               id: session.user.id,
               email: session.user.email || '',
@@ -109,19 +111,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (data.user) {
         // Use rpc method to get profile
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .rpc('get_profile_by_id', { user_id: data.user.id });
         
         if (profileError) throw profileError;
         
-        // Redirect to appropriate dashboard based on role
-        if (profile.role === 'teacher') {
-          navigate('/teacher-dashboard');
-        } else {
-          navigate('/student-dashboard');
+        if (profileData && profileData.length > 0) {
+          const profile = profileData[0];
+          
+          // Redirect to appropriate dashboard based on role
+          if (profile && profile.role === 'teacher') {
+            navigate('/teacher-dashboard');
+          } else {
+            navigate('/student-dashboard');
+          }
+          
+          toast.success(`Welcome back, ${profile ? profile.name : ''}!`);
         }
-        
-        toast.success(`Welcome back, ${profile.name}!`);
       }
     } catch (error) {
       console.error('Login error:', error);

@@ -211,7 +211,8 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         throw error;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
+        const newTestId = data[0].id;
         toast.success('Test created successfully!');
         
         // Refresh tests using the RPC function
@@ -233,7 +234,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setTests(formattedTests);
         }
         
-        return data.id;
+        return newTestId;
       }
     } catch (error) {
       console.error('Error adding test:', error);
@@ -261,7 +262,8 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         throw error;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
+        const newSubmissionId = data[0].id;
         toast.success('Test submitted successfully!');
         
         // Refresh submissions
@@ -293,7 +295,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setSubmissions(formattedSubmissions);
         }
         
-        return data.id;
+        return newSubmissionId;
       }
     } catch (error) {
       console.error('Error adding submission:', error);
