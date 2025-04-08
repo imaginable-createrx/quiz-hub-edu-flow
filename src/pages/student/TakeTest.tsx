@@ -8,6 +8,13 @@ import { useAuth } from '@/context/AuthContext';
 import { useTestData } from '@/context/TestDataContext';
 import { toast } from '@/components/ui/sonner';
 import { Clock, AlertTriangle, Camera } from 'lucide-react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
+// Set the worker source for PDF.js
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
 const TakeTest: React.FC = () => {
   const { testId } = useParams<{ testId: string }>();
@@ -15,6 +22,9 @@ const TakeTest: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [answers, setAnswers] = useState<{ questionNumber: number; imageUrl: string }[]>([]);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [pdfError, setPdfError] = useState<Error | null>(null);
   
   const { user } = useAuth();
   const { getTestById, addSubmission } = useTestData();
@@ -85,6 +95,22 @@ const TakeTest: React.FC = () => {
   const handleFinishClick = () => {
     setIsFinishDialogOpen(true);
   };
+
+  // Handle PDF document loading
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPdfError(null);
+  };
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error('Error loading PDF:', error);
+    setPdfError(error);
+    toast.error('Failed to load test PDF. Please try refreshing the page.');
+  };
+
+  // PDF navigation
+  const goToPrevPage = () => setPageNumber(prev => Math.max(prev - 1, 1));
+  const goToNextPage = () => setPageNumber(prev => Math.min(prev + 1, numPages || 1));
   
   if (!test) {
     return (
@@ -123,21 +149,71 @@ const TakeTest: React.FC = () => {
       
       {/* Test PDF Display */}
       <Card className="mb-8">
-        <CardContent className="p-6">
-          <div className="bg-secondary/30 rounded-lg p-8 text-center">
-            <p className="text-lg mb-6">
-              This is where the PDF of the test would be displayed in an embedded viewer.
-            </p>
-            <p className="text-sm text-muted-foreground mb-4">
-              In a real implementation, the PDF would be displayed here using a PDF viewer component.
-            </p>
-            <div className="border border-dashed border-border rounded-lg p-12 max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold mb-4">{test.title}</h2>
-              <p className="mb-8">Test Content Would Appear Here</p>
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-8 bg-secondary/60 rounded mb-4"></div>
-              ))}
-            </div>
+        <CardContent className="p-4 md:p-6">
+          <div className="bg-muted/20 rounded-lg p-4 md:p-6">
+            {pdfError ? (
+              <div className="text-center py-8">
+                <AlertTriangle size={32} className="mx-auto text-destructive mb-4" />
+                <p className="text-lg font-medium mb-2">Failed to load PDF</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {pdfError.message || 'There was an error loading the test PDF.'}
+                </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.location.reload()}
+                >
+                  Reload Page
+                </Button>
+              </div>
+            ) : (
+              <>
+                <ScrollArea className="h-[600px] w-full rounded-md border">
+                  <div className="flex justify-center py-4">
+                    <Document
+                      file={test.pdfUrl || '/placeholder.svg'}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      onLoadError={onDocumentLoadError}
+                      loading={
+                        <div className="text-center py-12">
+                          <p className="text-muted-foreground">Loading test PDF...</p>
+                        </div>
+                      }
+                      className="mx-auto"
+                    >
+                      <Page 
+                        pageNumber={pageNumber} 
+                        renderTextLayer={true}
+                        renderAnnotationLayer={true}
+                        scale={1.2}
+                        className="mx-auto shadow-md"
+                      />
+                    </Document>
+                  </div>
+                </ScrollArea>
+                
+                {numPages && (
+                  <div className="flex justify-between items-center mt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={goToPrevPage} 
+                      disabled={pageNumber <= 1}
+                    >
+                      Previous Page
+                    </Button>
+                    <p className="text-sm">
+                      Page {pageNumber} of {numPages}
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      onClick={goToNextPage} 
+                      disabled={pageNumber >= (numPages || 1)}
+                    >
+                      Next Page
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
