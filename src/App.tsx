@@ -13,7 +13,6 @@ import UploadTest from '@/pages/teacher/UploadTest';
 import GradeSubmission from '@/pages/teacher/GradeSubmission';
 import { AuthProvider } from '@/context/AuthContext';
 import { TestDataProvider } from '@/context/TestDataContext';
-import '@/integrations/supabase/storage'; // Import storage initialization
 
 // Create a client
 const queryClient = new QueryClient();

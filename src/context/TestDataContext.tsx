@@ -95,8 +95,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             graded,
             answer_images (question_number, image_path)
           `)
-          .eq(user.role === 'student' ? 'student_id' : 'id', user.role === 'student' ? user.id : 'not.eq.null')
-          .order('submitted_at', { ascending: false });
+          .eq(user.role === 'student' ? 'student_id' : 'id', user.role === 'student' ? user.id : 'id');
 
         if (error) {
           console.error('Error fetching submissions:', error);
@@ -136,7 +135,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${testId}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${testId}/${fileName}`;
+      const filePath = `${fileName}`;
 
       // Use the uploadFile helper function
       const publicUrl = await uploadFile('test_files', filePath, file);
@@ -281,7 +280,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Get test files to delete from storage
       const { data: testFiles, error: filesError } = await supabase
         .from('test_files')
-        .select('file_path')
+        .select('file_path, file_name')
         .eq('test_id', testId);
 
       if (filesError) {
@@ -301,7 +300,10 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Delete files from storage if there are any
       if (testFiles && testFiles.length > 0) {
         for (const file of testFiles) {
-          const filePath = file.file_path.split('/').slice(-2).join('/');
+          // Extract just the filename from the URL
+          const filePathParts = file.file_path.split('/');
+          const filePath = filePathParts[filePathParts.length - 1];
+          
           await deleteFile('test_files', filePath);
         }
       }
@@ -358,8 +360,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             graded,
             answer_images (question_number, image_path)
           `)
-          .eq(user.role === 'student' ? 'student_id' : 'id', user.role === 'student' ? user.id : 'not.eq.null')
-          .order('submitted_at', { ascending: false });
+          .eq(user.role === 'student' ? 'student_id' : 'id', user.role === 'student' ? user.id : 'id');
 
         if (!fetchError && newSubmissions) {
           const formattedSubmissions: Submission[] = newSubmissions.map((sub: any) => {
