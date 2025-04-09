@@ -1,14 +1,15 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Test, Submission, AnswerImage } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { uploadFile, deleteFile } from '@/integrations/supabase/storage';
 
 interface TestDataContextType {
   tests: Test[];
   submissions: Submission[];
   addTest: (test: Omit<Test, 'id' | 'createdAt'>) => Promise<string | undefined>;
+  deleteTest: (testId: string) => Promise<boolean>;
   addSubmission: (submission: Omit<Submission, 'id' | 'submittedAt' | 'graded'>) => Promise<string | undefined>;
   gradeSubmission: (submissionId: string, score: number, feedback?: string) => Promise<void>;
   getTestById: (testId: string) => Test | undefined;
@@ -137,24 +138,19 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const fileName = `${testId}_${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `${testId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('test_files')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
+      // Use the uploadFile helper function
+      const publicUrl = await uploadFile('test_files', filePath, file);
+      
+      if (!publicUrl) {
+        throw new Error('Failed to upload file to storage');
       }
-
-      const { data: urlData } = supabase.storage
-        .from('test_files')
-        .getPublicUrl(filePath);
 
       // Save file info to database
       const { error: dbError } = await supabase
         .from('test_files')
         .insert({
           test_id: testId,
-          file_path: urlData.publicUrl,
+          file_path: publicUrl,
           file_name: file.name
         });
 
@@ -162,7 +158,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         throw dbError;
       }
 
-      return urlData.publicUrl;
+      return publicUrl;
     } catch (error) {
       console.error('Error uploading test file:', error);
       toast.error('Failed to upload test file');
@@ -180,17 +176,12 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const fileName = `${submissionId}_${questionNumber}_${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `${submissionId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('answer_images')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
+      // Use the uploadFile helper function
+      const publicUrl = await uploadFile('answer_images', filePath, file);
+      
+      if (!publicUrl) {
+        throw new Error('Failed to upload file to storage');
       }
-
-      const { data: urlData } = supabase.storage
-        .from('answer_images')
-        .getPublicUrl(filePath);
 
       // Save file info to database
       const { error: dbError } = await supabase
@@ -198,14 +189,14 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .insert({
           submission_id: submissionId,
           question_number: questionNumber,
-          image_path: urlData.publicUrl
+          image_path: publicUrl
         });
 
       if (dbError) {
         throw dbError;
       }
 
-      return urlData.publicUrl;
+      return publicUrl;
     } catch (error) {
       console.error('Error uploading answer image:', error);
       toast.error('Failed to upload answer image');
@@ -277,6 +268,53 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (error) {
       console.error('Error adding test:', error);
       toast.error('Failed to create test: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const deleteTest = async (testId: string): Promise<boolean> => {
+    try {
+      if (!user || user.role !== 'teacher') {
+        toast.error('Only teachers can delete tests');
+        return false;
+      }
+
+      // Get test files to delete from storage
+      const { data: testFiles, error: filesError } = await supabase
+        .from('test_files')
+        .select('file_path')
+        .eq('test_id', testId);
+
+      if (filesError) {
+        console.error('Error fetching test files:', filesError);
+      }
+
+      // Delete the test from the database
+      const { error: deleteError } = await supabase
+        .from('tests')
+        .delete()
+        .eq('id', testId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // Delete files from storage if there are any
+      if (testFiles && testFiles.length > 0) {
+        for (const file of testFiles) {
+          const filePath = file.file_path.split('/').slice(-2).join('/');
+          await deleteFile('test_files', filePath);
+        }
+      }
+
+      // Update local state
+      setTests(prev => prev.filter(t => t.id !== testId));
+      
+      toast.success('Test deleted successfully!');
+      return true;
+    } catch (error) {
+      console.error('Error deleting test:', error);
+      toast.error('Failed to delete test: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      return false;
     }
   };
 
@@ -406,7 +444,8 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       value={{ 
         tests, 
         submissions, 
-        addTest, 
+        addTest,
+        deleteTest, 
         addSubmission, 
         gradeSubmission,
         getTestById,

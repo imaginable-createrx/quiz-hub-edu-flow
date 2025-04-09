@@ -1,10 +1,12 @@
 
-import React from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { 
   FileText, 
   CheckSquare, 
-  PlusCircle 
+  PlusCircle,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -13,14 +15,41 @@ import { useTestData } from '@/context/TestDataContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const TeacherDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { tests, submissions } = useTestData();
+  const { tests, submissions, deleteTest } = useTestData();
   const location = useLocation();
+  const navigate = useNavigate();
+  
+  // State for delete confirmation dialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [testToDelete, setTestToDelete] = useState<string | null>(null);
   
   // Count submissions waiting for grading
   const pendingGrades = submissions.filter(sub => !sub.graded).length;
+
+  // Handle deleting a test
+  const handleDeleteTest = async () => {
+    if (!testToDelete) return;
+    
+    const success = await deleteTest(testToDelete);
+    if (success) {
+      // If deletion was successful, close the dialog
+      setIsDeleteDialogOpen(false);
+      setTestToDelete(null);
+    }
+  };
 
   // If we're on a sub-route, render the Outlet component
   if (location.pathname !== '/teacher-dashboard') {
@@ -118,9 +147,21 @@ const TeacherDashboard: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <Link to={`/teacher-dashboard/test/${test.id}`}>
-                        <Button variant="outline" size="sm">View Details</Button>
-                      </Link>
+                      <div className="flex gap-2">
+                        <Link to={`/teacher-dashboard/test/${test.id}`}>
+                          <Button variant="outline" size="sm">View Details</Button>
+                        </Link>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => {
+                            setTestToDelete(test.id);
+                            setIsDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
                     </div>
                     
                     <Separator className="my-4" />
@@ -195,6 +236,33 @@ const TeacherDashboard: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Delete Test Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="text-destructive" size={20} /> 
+              Delete Test
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this test? This action cannot be undone. 
+              All associated files and data will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTestToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteTest}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 };
