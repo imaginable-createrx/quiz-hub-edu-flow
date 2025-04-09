@@ -25,6 +25,7 @@ const TakeTest: React.FC = () => {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfError, setPdfError] = useState<Error | null>(null);
+  const [loading, setLoading] = useState(true);
   
   const { user } = useAuth();
   const { getTestById, addSubmission } = useTestData();
@@ -32,11 +33,15 @@ const TakeTest: React.FC = () => {
   
   const test = testId ? getTestById(testId) : undefined;
   
-  // Initialize timer
   useEffect(() => {
-    if (test) {
-      setTimeLeft(test.durationMinutes * 60);
+    if (!test) {
+      setLoading(false);
+      return;
     }
+    
+    // Initialize timer
+    setTimeLeft(test.durationMinutes * 60);
+    setLoading(false);
   }, [test]);
   
   // Timer countdown
@@ -54,7 +59,7 @@ const TakeTest: React.FC = () => {
     }, 1000);
     
     return () => clearTimeout(timer);
-  }, [timeLeft, navigate, testId]);
+  }, [timeLeft]);
   
   // Format time display
   const formatTime = useCallback((seconds: number | null) => {
@@ -68,12 +73,12 @@ const TakeTest: React.FC = () => {
   
   // Handle test submission
   const handleSubmit = () => {
-    if (!user || !testId) return;
+    if (!user || !testId || !test) return;
     
     try {
       // In a real app, we would process the submitted answers here
       // For now, we'll simulate a submission with mock answer images
-      const mockAnswers = Array.from({ length: test?.numQuestions || 0 }, (_, i) => ({
+      const mockAnswers = Array.from({ length: test.numQuestions }, (_, i) => ({
         questionNumber: i + 1,
         imageUrl: `/sample-answer-${i + 1}.jpg`
       }));
@@ -110,7 +115,37 @@ const TakeTest: React.FC = () => {
 
   // PDF navigation
   const goToPrevPage = () => setPageNumber(prev => Math.max(prev - 1, 1));
-  const goToNextPage = () => setPageNumber(prev => Math.min(prev + 1, numPages || 1));
+  const goToNextPage = () => {
+    if (numPages) {
+      setPageNumber(prev => Math.min(prev + 1, numPages));
+    }
+  };
+
+  // Handle image captures for answers
+  const handleImageUpload = (questionNumber: number, file: File) => {
+    // Create URL for preview
+    const imageUrl = URL.createObjectURL(file);
+    setAnswers(prev => {
+      const newAnswers = [...prev];
+      const existingIndex = newAnswers.findIndex(a => a.questionNumber === questionNumber);
+      
+      if (existingIndex >= 0) {
+        newAnswers[existingIndex] = { questionNumber, imageUrl };
+      } else {
+        newAnswers.push({ questionNumber, imageUrl });
+      }
+      
+      return newAnswers;
+    });
+  };
+  
+  if (loading) {
+    return (
+      <div className="edu-container py-8 text-center">
+        <p>Loading test...</p>
+      </div>
+    );
+  }
   
   if (!test) {
     return (
@@ -149,6 +184,12 @@ const TakeTest: React.FC = () => {
       
       {/* Test PDF Display */}
       <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Test Questions</CardTitle>
+          <CardDescription>
+            Read through all questions carefully before answering
+          </CardDescription>
+        </CardHeader>
         <CardContent className="p-4 md:p-6">
           <div className="bg-muted/20 rounded-lg p-4 md:p-6">
             {pdfError ? (
@@ -170,7 +211,7 @@ const TakeTest: React.FC = () => {
                 <ScrollArea className="h-[600px] w-full rounded-md border">
                   <div className="flex justify-center py-4">
                     <Document
-                      file={test.pdfUrl || '/placeholder.svg'}
+                      file={test.pdfUrl}
                       onLoadSuccess={onDocumentLoadSuccess}
                       onLoadError={onDocumentLoadError}
                       loading={
@@ -228,21 +269,74 @@ const TakeTest: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: test.numQuestions }).map((_, index) => (
-              <div 
-                key={index} 
-                className="border border-dashed border-border rounded-lg p-6 text-center"
-              >
-                <Camera size={36} className="mx-auto text-muted-foreground mb-3" />
-                <h3 className="font-medium mb-2">Question {index + 1}</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Take a photo or upload your answer
-                </p>
-                <Button variant="outline" size="sm">
-                  Upload Image
-                </Button>
-              </div>
-            ))}
+            {Array.from({ length: test.numQuestions }).map((_, index) => {
+              const questionNumber = index + 1;
+              const answer = answers.find(a => a.questionNumber === questionNumber);
+              
+              return (
+                <div 
+                  key={index} 
+                  className="border border-dashed border-border rounded-lg p-6 text-center"
+                >
+                  {answer ? (
+                    <div className="space-y-3">
+                      <h3 className="font-medium mb-2">Question {questionNumber}</h3>
+                      <div className="border border-border rounded-lg overflow-hidden">
+                        <img 
+                          src={answer.imageUrl} 
+                          alt={`Answer to question ${questionNumber}`}
+                          className="w-full h-auto"
+                        />
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const fileInput = document.createElement('input');
+                          fileInput.type = 'file';
+                          fileInput.accept = 'image/*';
+                          fileInput.onchange = (e) => {
+                            const target = e.target as HTMLInputElement;
+                            if (target.files && target.files[0]) {
+                              handleImageUpload(questionNumber, target.files[0]);
+                            }
+                          };
+                          fileInput.click();
+                        }}
+                      >
+                        Change Image
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Camera size={36} className="mx-auto text-muted-foreground mb-3" />
+                      <h3 className="font-medium mb-2">Question {questionNumber}</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Take a photo or upload your answer
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const fileInput = document.createElement('input');
+                          fileInput.type = 'file';
+                          fileInput.accept = 'image/*';
+                          fileInput.onchange = (e) => {
+                            const target = e.target as HTMLInputElement;
+                            if (target.files && target.files[0]) {
+                              handleImageUpload(questionNumber, target.files[0]);
+                            }
+                          };
+                          fileInput.click();
+                        }}
+                      >
+                        Upload Image
+                      </Button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

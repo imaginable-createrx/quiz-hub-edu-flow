@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { useTestData } from '@/context/TestDataContext';
 import { toast } from '@/components/ui/sonner';
 import { FileUp, Clock, HelpCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { supabase } from '@/integrations/supabase/client';
 
 const UploadTest: React.FC = () => {
   const [title, setTitle] = useState('');
@@ -19,9 +20,10 @@ const UploadTest: React.FC = () => {
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
-  const { addTest } = useTestData();
+  const { addTest, uploadTestFile } = useTestData();
   const navigate = useNavigate();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,6 +37,25 @@ const UploadTest: React.FC = () => {
     }
   };
 
+  const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type !== 'application/pdf') {
+        toast.error('Please upload a PDF file');
+        return;
+      }
+      setPdfFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -46,18 +67,26 @@ const UploadTest: React.FC = () => {
     setIsUploading(true);
     
     try {
-      // In a real app, we would upload the PDF to storage here
-      // For now, we'll just create a mock URL
-      const mockPdfUrl = `/sample-tests/${pdfFile.name}`;
-      
-      addTest({
+      // First create the test to get an ID
+      const testId = await addTest({
         title,
         description,
-        pdfUrl: mockPdfUrl,
+        pdfUrl: '', // Will update this after file upload
         numQuestions,
         durationMinutes,
         createdBy: user?.id || 'unknown'
       });
+      
+      if (!testId) {
+        throw new Error('Failed to create test');
+      }
+      
+      // Now upload the PDF file
+      const pdfUrl = await uploadTestFile(testId, pdfFile);
+      
+      if (!pdfUrl) {
+        throw new Error('Failed to upload PDF file');
+      }
       
       toast.success('Test uploaded successfully!');
       navigate('/teacher-dashboard');
@@ -166,7 +195,11 @@ const UploadTest: React.FC = () => {
             
             <div className="space-y-2">
               <Label htmlFor="pdf">Test PDF</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+              <div 
+                className="border-2 border-dashed border-border rounded-lg p-6 text-center"
+                onDrop={handleFileDrop}
+                onDragOver={handleDragOver}
+              >
                 {pdfFile ? (
                   <div className="space-y-2">
                     <FileUp size={36} className="mx-auto text-primary" />
@@ -198,11 +231,12 @@ const UploadTest: React.FC = () => {
                       accept="application/pdf"
                       onChange={handleFileChange}
                       className="hidden"
+                      ref={fileInputRef}
                     />
                     <Button 
                       type="button" 
                       variant="outline"
-                      onClick={() => document.getElementById('pdf')?.click()}
+                      onClick={() => fileInputRef.current?.click()}
                     >
                       Select PDF
                     </Button>
