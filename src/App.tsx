@@ -21,9 +21,9 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TestDataProvider>
-          <Router>
+      <Router>
+        <AuthProvider>
+          <TestDataProvider>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
@@ -35,10 +35,10 @@ function App() {
               <Route path="/teacher-dashboard/grade-submission/:submissionId" element={<GradeSubmission />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Router>
-          <Toaster />
-        </TestDataProvider>
-      </AuthProvider>
+            <Toaster />
+          </TestDataProvider>
+        </AuthProvider>
+      </Router>
     </QueryClientProvider>
   );
 }
