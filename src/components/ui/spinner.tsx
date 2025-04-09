@@ -1,9 +1,20 @@
 
 import React from 'react';
 
-export const Spinner: React.FC = () => {
+export const Spinner: React.FC<{ size?: 'sm' | 'md' | 'lg'; className?: string }> = ({ 
+  size = 'md', 
+  className = '' 
+}) => {
+  const sizeClasses = {
+    sm: 'w-6 h-6',
+    md: 'w-12 h-12',
+    lg: 'w-16 h-16'
+  };
+
+  const spinnerSize = sizeClasses[size];
+
   return (
-    <div className="animate-spin w-full h-full text-primary">
+    <div className={`animate-spin ${spinnerSize} text-primary ${className}`}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         fill="none"

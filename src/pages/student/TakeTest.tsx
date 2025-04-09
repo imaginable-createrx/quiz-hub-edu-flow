@@ -28,6 +28,7 @@ const TakeTest: React.FC = () => {
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfError, setPdfError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingPdf, setLoadingPdf] = useState(true);
   
   const { user } = useAuth();
   const { tests, getTestById, addSubmission, uploadAnswerImage } = useTestData();
@@ -37,26 +38,27 @@ const TakeTest: React.FC = () => {
   const test = testId ? getTestById(testId) : undefined;
   
   useEffect(() => {
-    if (!testId) {
+    const initTest = async () => {
+      if (!testId || tests.length === 0) {
+        setLoading(false);
+        return;
+      }
+      
+      const currentTest = getTestById(testId);
+      if (!currentTest) {
+        console.error('Test not found:', testId);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Loaded test:', currentTest);
+      
+      // Initialize timer
+      setTimeLeft(currentTest.durationMinutes * 60);
       setLoading(false);
-      return;
-    }
+    };
     
-    // Ensure tests are loaded
-    if (tests.length === 0) {
-      // Tests are still loading
-      return;
-    }
-    
-    const currentTest = getTestById(testId);
-    if (!currentTest) {
-      setLoading(false);
-      return;
-    }
-    
-    // Initialize timer
-    setTimeLeft(currentTest.durationMinutes * 60);
-    setLoading(false);
+    initTest();
   }, [testId, tests, getTestById]);
   
   // Timer countdown
@@ -107,10 +109,14 @@ const TakeTest: React.FC = () => {
         throw new Error("Failed to create submission");
       }
       
+      console.log("Created submission with ID:", submissionId);
+      
       // Upload each answer image
       const uploadPromises = answers.map(async (answer) => {
         if (answer.file) {
-          return uploadAnswerImage(submissionId, answer.questionNumber, answer.file);
+          const result = await uploadAnswerImage(submissionId, answer.questionNumber, answer.file);
+          console.log(`Uploaded answer ${answer.questionNumber}:`, result);
+          return result;
         }
         return null;
       });
@@ -131,13 +137,16 @@ const TakeTest: React.FC = () => {
 
   // Handle PDF document loading
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log('PDF loaded successfully with', numPages, 'pages');
     setNumPages(numPages);
     setPdfError(null);
+    setLoadingPdf(false);
   };
 
   const onDocumentLoadError = (error: Error) => {
     console.error('Error loading PDF:', error);
     setPdfError(error);
+    setLoadingPdf(false);
     toast.error('Failed to load test PDF. Please try refreshing the page.');
   };
 
@@ -158,6 +167,10 @@ const TakeTest: React.FC = () => {
       const existingIndex = newAnswers.findIndex(a => a.questionNumber === questionNumber);
       
       if (existingIndex >= 0) {
+        // Revoke old object URL to prevent memory leaks
+        if (newAnswers[existingIndex].imageUrl) {
+          URL.revokeObjectURL(newAnswers[existingIndex].imageUrl);
+        }
         newAnswers[existingIndex] = { questionNumber, imageUrl, file };
       } else {
         newAnswers.push({ questionNumber, imageUrl, file });
@@ -165,37 +178,45 @@ const TakeTest: React.FC = () => {
       
       return newAnswers;
     });
+    
+    toast.success(`Answer for question ${questionNumber} uploaded successfully!`);
   };
   
-  if (loading || !test) {
+  if (loading) {
     return (
       <MainLayout>
         <div className="edu-container py-8 flex justify-center items-center min-h-[60vh]">
           <div className="text-center space-y-4">
-            {loading ? (
-              <>
-                <div className="mx-auto w-12 h-12">
-                  <Spinner />
-                </div>
-                <p className="text-xl">Loading test content...</p>
-              </>
-            ) : (
-              <>
-                <AlertTriangle size={48} className="mx-auto text-destructive mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Test Not Found</h2>
-                <p className="text-muted-foreground mb-6">
-                  The test you're looking for doesn't exist or has been removed.
-                </p>
-                <Button onClick={() => navigate('/student-dashboard')}>
-                  Return to Dashboard
-                </Button>
-              </>
-            )}
+            <div className="mx-auto">
+              <Spinner size="lg" />
+            </div>
+            <p className="text-xl font-medium">Loading test content...</p>
           </div>
         </div>
       </MainLayout>
     );
   }
+  
+  if (!test) {
+    return (
+      <MainLayout>
+        <div className="edu-container py-8 flex justify-center items-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <AlertTriangle size={48} className="mx-auto text-destructive mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Test Not Found</h2>
+            <p className="text-muted-foreground mb-6">
+              The test you're looking for doesn't exist or has been removed.
+            </p>
+            <Button onClick={() => navigate('/student-dashboard')}>
+              Return to Dashboard
+            </Button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
+  console.log('Rendering test:', test);
   
   return (
     <MainLayout>
@@ -252,21 +273,23 @@ const TakeTest: React.FC = () => {
                         onLoadError={onDocumentLoadError}
                         loading={
                           <div className="text-center py-12">
-                            <div className="mx-auto w-12 h-12 mb-4">
-                              <Spinner />
+                            <div className="mx-auto mb-4">
+                              <Spinner size="lg" />
                             </div>
                             <p className="text-muted-foreground">Loading test PDF...</p>
                           </div>
                         }
                         className="mx-auto"
                       >
-                        <Page 
-                          pageNumber={pageNumber} 
-                          renderTextLayer={true}
-                          renderAnnotationLayer={true}
-                          scale={1.2}
-                          className="mx-auto shadow-md"
-                        />
+                        {!loadingPdf && (
+                          <Page 
+                            pageNumber={pageNumber} 
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                            scale={1.2}
+                            className="mx-auto shadow-md"
+                          />
+                        )}
                       </Document>
                     </div>
                   </ScrollArea>
