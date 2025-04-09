@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Test, Submission, AnswerImage } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { uploadFile, deleteFile } from '@/integrations/supabase/storage';
 
 interface TestDataContextType {
@@ -27,7 +27,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const { user } = useAuth();
 
-  // Fetch tests and submissions data
+  // Fetch tests data
   useEffect(() => {
     const fetchTests = async () => {
       try {
@@ -82,8 +82,8 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const fetchSubmissions = async () => {
       try {
-        // Use a join query to fetch submissions with answers
-        const { data, error } = await supabase
+        // Use a different query based on user role
+        let query = supabase
           .from('submissions')
           .select(`
             id,
@@ -94,8 +94,16 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             feedback,
             graded,
             answer_images (question_number, image_path)
-          `)
-          .eq(user.role === 'student' ? 'student_id' : 'id', user.role === 'student' ? user.id : 'id');
+          `);
+          
+        // Filter based on user role
+        if (user.role === 'student') {
+          query = query.eq('student_id', user.id);
+        } else if (user.role === 'teacher') {
+          // Teachers can see all submissions
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error('Error fetching submissions:', error);
@@ -173,7 +181,7 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${submissionId}_${questionNumber}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${submissionId}/${fileName}`;
+      const filePath = `${fileName}`;
 
       // Use the uploadFile helper function
       const publicUrl = await uploadFile('answer_images', filePath, file);
@@ -340,55 +348,62 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .single();
 
       if (error) {
+        console.error('Error adding submission:', error);
         throw error;
       }
 
-      if (data) {
-        const newSubmissionId = data.id;
-        toast.success('Test submitted successfully!');
-        
-        // Refresh submissions
-        const { data: newSubmissions, error: fetchError } = await supabase
-          .from('submissions')
-          .select(`
-            id,
-            test_id,
-            student_id,
-            submitted_at,
-            score,
-            feedback,
-            graded,
-            answer_images (question_number, image_path)
-          `)
-          .eq(user.role === 'student' ? 'student_id' : 'id', user.role === 'student' ? user.id : 'id');
-
-        if (!fetchError && newSubmissions) {
-          const formattedSubmissions: Submission[] = newSubmissions.map((sub: any) => {
-            const answers: AnswerImage[] = sub.answer_images ? sub.answer_images.map((ans: any) => ({
-              questionNumber: ans.question_number,
-              imageUrl: ans.image_path
-            })) : [];
-
-            return {
-              id: sub.id,
-              testId: sub.test_id,
-              studentId: sub.student_id,
-              answers,
-              submittedAt: sub.submitted_at,
-              score: sub.score,
-              feedback: sub.feedback,
-              graded: sub.graded
-            };
-          });
-          
-          setSubmissions(formattedSubmissions);
-        }
-        
-        return newSubmissionId;
+      if (!data) {
+        throw new Error('No data returned from submission creation');
       }
+
+      const newSubmissionId = data.id;
+      console.log('Created submission with ID:', newSubmissionId);
+        
+      // Refresh submissions
+      const { data: newSubmissions, error: fetchError } = await supabase
+        .from('submissions')
+        .select(`
+          id,
+          test_id,
+          student_id,
+          submitted_at,
+          score,
+          feedback,
+          graded,
+          answer_images (question_number, image_path)
+        `);
+
+      if (fetchError) {
+        console.error('Error fetching updated submissions:', fetchError);
+      }
+
+      if (newSubmissions) {
+        const formattedSubmissions: Submission[] = newSubmissions.map((sub: any) => {
+          const answers: AnswerImage[] = sub.answer_images ? sub.answer_images.map((ans: any) => ({
+            questionNumber: ans.question_number,
+            imageUrl: ans.image_path
+          })) : [];
+
+          return {
+            id: sub.id,
+            testId: sub.test_id,
+            studentId: sub.student_id,
+            answers,
+            submittedAt: sub.submitted_at,
+            score: sub.score,
+            feedback: sub.feedback,
+            graded: sub.graded || false
+          };
+        });
+        
+        setSubmissions(formattedSubmissions);
+      }
+      
+      return newSubmissionId;
     } catch (error) {
       console.error('Error adding submission:', error);
       toast.error('Failed to submit test: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      return undefined;
     }
   };
 
