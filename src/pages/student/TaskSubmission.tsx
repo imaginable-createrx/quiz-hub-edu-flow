@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, TasksResponse, TaskSubmissionResponse } from '@/integrations/supabase/client';
 import { uploadFile } from '@/integrations/supabase/storage';
 import MainLayout from '@/components/layout/MainLayout';
 import { Spinner } from '@/components/ui/spinner';
@@ -34,6 +33,7 @@ const TaskSubmission: React.FC = () => {
       }
       
       try {
+        // Using type assertion for tasks table
         const { data, error } = await supabase
           .from('tasks')
           .select('*')
@@ -42,15 +42,18 @@ const TaskSubmission: React.FC = () => {
         
         if (error) throw error;
         
+        // Cast to our known type
+        const taskData = data as TasksResponse;
+        
         setTask({
-          id: data.id,
-          title: data.title,
-          description: data.description,
-          dueDate: data.due_date,
-          createdAt: data.created_at,
-          createdBy: data.created_by,
-          attachmentUrl: data.attachment_url,
-          status: data.status
+          id: taskData.id,
+          title: taskData.title,
+          description: taskData.description || undefined,
+          dueDate: taskData.due_date,
+          createdAt: taskData.created_at,
+          createdBy: taskData.created_by,
+          attachmentUrl: taskData.attachment_url || undefined,
+          status: taskData.status as 'active' | 'completed',
         });
       } catch (error) {
         console.error('Error fetching task:', error);
@@ -69,6 +72,7 @@ const TaskSubmission: React.FC = () => {
     
     const checkSubmission = async () => {
       try {
+        // Using type assertion for task_submissions table
         const { data, error } = await supabase
           .from('task_submissions')
           .select('*')
@@ -128,7 +132,7 @@ const TaskSubmission: React.FC = () => {
         throw new Error('Failed to upload confirmation file');
       }
       
-      // Create submission record
+      // Create submission record with type assertions
       const { error } = await supabase
         .from('task_submissions')
         .insert({
@@ -136,7 +140,7 @@ const TaskSubmission: React.FC = () => {
           student_id: user.id,
           attachment_url: attachmentUrl,
           status: 'submitted'
-        });
+        } as Partial<TaskSubmissionResponse>);
       
       if (error) throw error;
       

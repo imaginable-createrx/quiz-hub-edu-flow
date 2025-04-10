@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -11,7 +10,7 @@ import MainLayout from '@/components/layout/MainLayout';
 import DeleteTestButton from '@/components/teacher/DeleteTestButton';
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from '@/components/ui/spinner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, TasksResponse, TaskSubmissionResponse } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
 import { toast } from 'sonner';
 
@@ -32,6 +31,8 @@ const TeacherDashboard = () => {
       
       try {
         setLoadingTasks(true);
+        
+        // Using type assertion for 'tasks' table
         const { data, error } = await supabase
           .from('tasks')
           .select('*')
@@ -41,15 +42,15 @@ const TeacherDashboard = () => {
         if (error) throw error;
         
         // Transform the data to match our Task interface
-        const formattedTasks: Task[] = data.map((task: any) => ({
+        const formattedTasks: Task[] = (data as TasksResponse[]).map((task) => ({
           id: task.id,
           title: task.title,
-          description: task.description,
+          description: task.description || undefined,
           dueDate: task.due_date,
           createdAt: task.created_at,
           createdBy: task.created_by,
-          attachmentUrl: task.attachment_url,
-          status: task.status
+          attachmentUrl: task.attachment_url || undefined,
+          status: task.status as 'active' | 'completed'
         }));
         
         setTasks(formattedTasks);
@@ -57,6 +58,7 @@ const TeacherDashboard = () => {
         // Also fetch task submissions for these tasks
         const taskIds = formattedTasks.map(t => t.id);
         if (taskIds.length > 0) {
+          // Using type assertion for 'task_submissions' table
           const { data: submissionsData, error: submissionsError } = await supabase
             .from('task_submissions')
             .select('*')
@@ -64,7 +66,7 @@ const TeacherDashboard = () => {
             
           if (submissionsError) throw submissionsError;
           
-          setTaskSubmissions(submissionsData);
+          setTaskSubmissions(submissionsData as TaskSubmissionResponse[]);
         }
       } catch (err) {
         console.error('Error fetching tasks:', err);
