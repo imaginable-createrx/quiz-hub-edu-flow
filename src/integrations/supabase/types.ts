@@ -107,6 +107,92 @@ export type Database = {
           },
         ]
       }
+      task_submissions: {
+        Row: {
+          attachment_url: string
+          feedback: string | null
+          id: string
+          status: string
+          student_id: string
+          submitted_at: string
+          task_id: string
+        }
+        Insert: {
+          attachment_url: string
+          feedback?: string | null
+          id?: string
+          status?: string
+          student_id: string
+          submitted_at?: string
+          task_id: string
+        }
+        Update: {
+          attachment_url?: string
+          feedback?: string | null
+          id?: string
+          status?: string
+          student_id?: string
+          submitted_at?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_submissions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          attachment_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_date: string
+          id: string
+          status: string
+          title: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_date: string
+          id?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          attachment_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_date?: string
+          id?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_files: {
         Row: {
           file_name: string

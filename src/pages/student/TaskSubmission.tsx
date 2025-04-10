@@ -7,12 +7,12 @@ import { uploadFile } from '@/integrations/supabase/storage';
 import MainLayout from '@/components/layout/MainLayout';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
+import { Task } from '@/types/task';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, FileText, AlertTriangle, Camera, Upload } from 'lucide-react';
-import { Task } from '@/types/task';
 
 const TaskSubmission: React.FC = () => {
   const { taskId } = useParams<{ taskId: string }>();

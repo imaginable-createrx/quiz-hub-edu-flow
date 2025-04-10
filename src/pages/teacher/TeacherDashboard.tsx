@@ -6,11 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/context/AuthContext';
 import { useTestData } from '@/context/TestDataContext';
-import { Calendar, Clock, FileText, Plus, Users } from 'lucide-react';
+import { Calendar, Clock, FileText, Plus, Users, CheckCircle } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import DeleteTestButton from '@/components/teacher/DeleteTestButton';
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from '@/components/ui/spinner';
+import { supabase } from '@/integrations/supabase/client';
+import { Task } from '@/types/task';
+import { toast } from 'sonner';
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -18,6 +21,61 @@ const TeacherDashboard = () => {
   const { tests, submissions, getSubmissionsByTestId } = useTestData();
   const [activeTab, setActiveTab] = useState('tests');
   const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskSubmissions, setTaskSubmissions] = useState<any[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+
+  // Fetch tasks created by this teacher
+  useEffect(() => {
+    const fetchTasks = async () => {
+      if (!user) return;
+      
+      try {
+        setLoadingTasks(true);
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('created_by', user.id)
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        // Transform the data to match our Task interface
+        const formattedTasks: Task[] = data.map((task: any) => ({
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          dueDate: task.due_date,
+          createdAt: task.created_at,
+          createdBy: task.created_by,
+          attachmentUrl: task.attachment_url,
+          status: task.status
+        }));
+        
+        setTasks(formattedTasks);
+        
+        // Also fetch task submissions for these tasks
+        const taskIds = formattedTasks.map(t => t.id);
+        if (taskIds.length > 0) {
+          const { data: submissionsData, error: submissionsError } = await supabase
+            .from('task_submissions')
+            .select('*')
+            .in('task_id', taskIds);
+            
+          if (submissionsError) throw submissionsError;
+          
+          setTaskSubmissions(submissionsData);
+        }
+      } catch (err) {
+        console.error('Error fetching tasks:', err);
+        toast.error('Failed to load tasks');
+      } finally {
+        setLoadingTasks(false);
+      }
+    };
+    
+    fetchTasks();
+  }, [user]);
 
   // Simulate loading
   useEffect(() => {
@@ -48,6 +106,11 @@ const TeacherDashboard = () => {
     );
   }
 
+  // Function to count task submissions by task ID
+  const getSubmissionCountForTask = (taskId: string) => {
+    return taskSubmissions.filter(sub => sub.task_id === taskId).length;
+  };
+
   return (
     <MainLayout>
       <div className="container py-8">
@@ -77,7 +140,7 @@ const TeacherDashboard = () => {
           </div>
         </div>
         
-        <Tabs defaultValue="tests" value={activeTab} onValueChange={setActiveTab}>
+        <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="tests">My Tests</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
@@ -140,16 +203,59 @@ const TeacherDashboard = () => {
           </TabsContent>
           
           <TabsContent value="tasks" className="space-y-6">
-            <div className="col-span-full flex flex-col items-center justify-center p-12 text-center">
-              <FileText size={48} className="text-muted-foreground mb-4" />
-              <h3 className="text-xl font-medium mb-2">No Tasks Created</h3>
-              <p className="text-muted-foreground mb-4">
-                You haven't created any tasks yet. Create your first task to get started.
-              </p>
-              <Button onClick={() => navigate('/teacher-dashboard/create-task')}>
-                Create Task
-              </Button>
-            </div>
+            {loadingTasks ? (
+              <div className="flex justify-center py-12">
+                <Spinner size="lg" />
+              </div>
+            ) : tasks.length > 0 ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {tasks.map(task => (
+                  <Card key={task.id} className="overflow-hidden">
+                    <div className="h-32 bg-muted flex items-center justify-center">
+                      <CheckCircle size={48} className="text-muted-foreground" />
+                    </div>
+                    <CardHeader className="pb-2">
+                      <CardTitle>{task.title}</CardTitle>
+                      <CardDescription className="line-clamp-2">
+                        {task.description || 'No description provided'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar size={16} className="text-muted-foreground" />
+                          <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Users size={16} className="text-muted-foreground" />
+                          <span>{getSubmissionCountForTask(task.id)} Submissions</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-between">
+                      {task.attachmentUrl && (
+                        <Button variant="outline" asChild>
+                          <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                            View Attachment
+                          </a>
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="col-span-full flex flex-col items-center justify-center p-12 text-center">
+                <CheckCircle size={48} className="text-muted-foreground mb-4" />
+                <h3 className="text-xl font-medium mb-2">No Tasks Created</h3>
+                <p className="text-muted-foreground mb-4">
+                  You haven't created any tasks yet. Create your first task to get started.
+                </p>
+                <Button onClick={() => navigate('/teacher-dashboard/create-task')}>
+                  Create Task
+                </Button>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="submissions" className="space-y-6">
