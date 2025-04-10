@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { supabase, TasksResponse, TaskSubmissionResponse } from '@/integrations/supabase/client';
+import { supabase, TasksResponse, TaskSubmissionResponse, TaskSubmissionInsert } from '@/integrations/supabase/client';
 import { uploadFile } from '@/integrations/supabase/storage';
 import MainLayout from '@/components/layout/MainLayout';
 import { Spinner } from '@/components/ui/spinner';
@@ -43,7 +43,7 @@ const TaskSubmission: React.FC = () => {
         if (error) throw error;
         
         // Cast to our known type
-        const taskData = data as TasksResponse;
+        const taskData = data as unknown as TasksResponse;
         
         setTask({
           id: taskData.id,
@@ -132,15 +132,17 @@ const TaskSubmission: React.FC = () => {
         throw new Error('Failed to upload confirmation file');
       }
       
-      // Create submission record with type assertions
+      // Create submission record with proper type
+      const submissionData: TaskSubmissionInsert = {
+        task_id: taskId,
+        student_id: user.id,
+        attachment_url: attachmentUrl,
+        status: 'submitted'
+      };
+      
       const { error } = await supabase
         .from('task_submissions')
-        .insert({
-          task_id: taskId,
-          student_id: user.id,
-          attachment_url: attachmentUrl,
-          status: 'submitted'
-        } as Partial<TaskSubmissionResponse>);
+        .insert(submissionData);
       
       if (error) throw error;
       

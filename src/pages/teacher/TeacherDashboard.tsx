@@ -42,7 +42,7 @@ const TeacherDashboard = () => {
         if (error) throw error;
         
         // Transform the data to match our Task interface
-        const formattedTasks: Task[] = (data as TasksResponse[]).map((task) => ({
+        const formattedTasks: Task[] = (data as unknown as TasksResponse[]).map((task) => ({
           id: task.id,
           title: task.title,
           description: task.description || undefined,
@@ -66,7 +66,7 @@ const TeacherDashboard = () => {
             
           if (submissionsError) throw submissionsError;
           
-          setTaskSubmissions(submissionsData as TaskSubmissionResponse[]);
+          setTaskSubmissions(submissionsData as unknown as TaskSubmissionResponse[]);
         }
       } catch (err) {
         console.error('Error fetching tasks:', err);

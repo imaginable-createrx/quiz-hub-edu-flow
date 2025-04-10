@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -5,7 +6,7 @@ import { format } from 'date-fns';
 import MainLayout from '@/components/layout/MainLayout';
 import { uploadFile } from '@/integrations/supabase/storage';
 import { useAuth } from '@/context/AuthContext';
-import { supabase, TasksResponse } from '@/integrations/supabase/client';
+import { supabase, TasksInsert } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,16 +45,18 @@ const CreateTask: React.FC = () => {
     try {
       setIsSubmitting(true);
 
-      // First, insert the task in the database using the type for tasks
-      const { data: taskData, error: taskError } = await supabase
+      // First, insert the task in the database using the specific insert type
+      const taskData: TasksInsert = {
+        title: data.title,
+        description: data.description || null,
+        due_date: data.dueDate.toISOString(),
+        created_by: user.id,
+        status: 'active'
+      };
+
+      const { data: insertedTask, error: taskError } = await supabase
         .from('tasks')
-        .insert({
-          title: data.title,
-          description: data.description || null,
-          due_date: data.dueDate.toISOString(),
-          created_by: user.id,
-          status: 'active'
-        } as Partial<TasksResponse>)
+        .insert(taskData)
         .select('id')
         .single();
 
@@ -63,20 +66,18 @@ const CreateTask: React.FC = () => {
 
       // If there's an attachment, upload it
       let attachmentUrl = null;
-      if (attachment && taskData?.id) {
+      if (attachment && insertedTask?.id) {
         const fileExt = attachment.name.split('.').pop();
-        const fileName = `${taskData.id}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const fileName = `${insertedTask.id}_${Math.random().toString(36).substring(2)}.${fileExt}`;
         
         attachmentUrl = await uploadFile('task_attachments', fileName, attachment);
         
         if (attachmentUrl) {
-          // Update the task with the attachment URL using the type for tasks
+          // Update the task with the attachment URL
           const { error: updateError } = await supabase
             .from('tasks')
-            .update({ 
-              attachment_url: attachmentUrl 
-            } as Partial<TasksResponse>)
-            .eq('id', taskData.id);
+            .update({ attachment_url: attachmentUrl })
+            .eq('id', insertedTask.id);
             
           if (updateError) {
             console.error('Error updating task with attachment:', updateError);

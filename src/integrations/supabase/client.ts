@@ -32,3 +32,21 @@ export type TaskSubmissionResponse = {
   feedback: string | null;
   attachment_url: string;
 }
+
+// Insert type definitions that match the required fields for database inserts
+export type TasksInsert = {
+  title: string;
+  description?: string | null;
+  due_date: string;
+  created_by: string;
+  attachment_url?: string | null;
+  status?: string;
+}
+
+export type TaskSubmissionInsert = {
+  task_id: string;
+  student_id: string;
+  attachment_url: string;
+  status?: string;
+  feedback?: string | null;
+}
