@@ -19,17 +19,35 @@ const TakeTest: React.FC = () => {
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [answers, setAnswers] = useState<{ questionNumber: number; imageUrl: string; file?: File }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contextError, setContextError] = useState<string | null>(null);
   const [pdfLoadingSuccess, setPdfLoadingSuccess] = useState(false);
   
   const { user } = useAuth();
-  const { tests, getTestById, addSubmission, uploadAnswerImage } = useTestData();
   const navigate = useNavigate();
   
+  // Safely get TestData context
+  let testDataContext;
+  try {
+    testDataContext = useTestData();
+  } catch (error) {
+    console.error('Error accessing TestDataContext:', error);
+    if (!contextError) {
+      setContextError('TestDataContext is not available. Please return to the dashboard and try again.');
+    }
+  }
+  
+  const { tests, getTestById, addSubmission, uploadAnswerImage } = testDataContext || {};
+  
   // Get the test data based on testId
-  const test = testId ? getTestById(testId) : undefined;
+  const test = testId && getTestById ? getTestById(testId) : undefined;
   
   useEffect(() => {
     const initTest = async () => {
+      if (contextError) {
+        setLoading(false);
+        return;
+      }
+      
       if (!testId) {
         console.error('No test ID provided');
         toast.error('Test ID is missing');
@@ -37,9 +55,16 @@ const TakeTest: React.FC = () => {
         return;
       }
       
-      if (tests.length === 0) {
+      if (!tests || tests.length === 0) {
         console.log('Tests data not loaded yet, waiting...');
         setLoading(true);
+        return;
+      }
+      
+      if (!getTestById) {
+        console.error('getTestById function is not available');
+        setContextError('Required functions are not available. Please return to the dashboard.');
+        setLoading(false);
         return;
       }
       
@@ -60,7 +85,7 @@ const TakeTest: React.FC = () => {
     };
     
     initTest();
-  }, [testId, tests, getTestById]);
+  }, [testId, tests, getTestById, contextError]);
   
   // Timer countdown
   useEffect(() => {
@@ -93,6 +118,11 @@ const TakeTest: React.FC = () => {
   const handleSubmit = async () => {
     if (!user || !testId || !test) {
       toast.error("Missing required information for submission");
+      return;
+    }
+    
+    if (!addSubmission || !uploadAnswerImage) {
+      toast.error("Required functions are not available");
       return;
     }
     
@@ -159,6 +189,23 @@ const TakeTest: React.FC = () => {
     
     toast.success(`Answer for question ${questionNumber} uploaded successfully!`);
   };
+  
+  if (contextError) {
+    return (
+      <MainLayout>
+        <div className="edu-container py-8 flex justify-center items-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <AlertTriangle size={48} className="mx-auto text-destructive mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Context Error</h2>
+            <p className="text-muted-foreground mb-6">{contextError}</p>
+            <Button onClick={() => navigate('/student-dashboard')}>
+              Return to Dashboard
+            </Button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
   
   if (loading) {
     return (
