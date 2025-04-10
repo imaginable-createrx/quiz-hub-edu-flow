@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import { useTestData } from '@/context/TestDataContext';
+import { Spinner } from '@/components/ui/spinner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,14 +14,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 interface DeleteTestButtonProps {
   testId: string;
   testTitle: string;
+  pdfUrl: string;
 }
 
-const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle }) => {
+const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, pdfUrl }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { deleteTest } = useTestData();
@@ -72,7 +74,14 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle }
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? (
+                <span className="flex items-center gap-2">
+                  <Spinner size="sm" className="text-white" /> 
+                  Deleting...
+                </span>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

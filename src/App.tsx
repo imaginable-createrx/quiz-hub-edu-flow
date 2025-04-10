@@ -11,6 +11,8 @@ import TakeTest from '@/pages/student/TakeTest';
 import TestResult from '@/pages/student/TestResult';
 import UploadTest from '@/pages/teacher/UploadTest';
 import GradeSubmission from '@/pages/teacher/GradeSubmission';
+import CreateTask from '@/pages/teacher/CreateTask';
+import TaskSubmission from '@/pages/student/TaskSubmission';
 import { AuthProvider } from '@/context/AuthContext';
 import { TestDataProvider } from '@/context/TestDataContext';
 
@@ -32,6 +34,8 @@ function App() {
               <Route path="/test-result/:submissionId" element={<TestResult />} />
               <Route path="/teacher-dashboard/upload-test" element={<UploadTest />} />
               <Route path="/teacher-dashboard/grade-submission/:submissionId" element={<GradeSubmission />} />
+              <Route path="/teacher-dashboard/create-task" element={<CreateTask />} />
+              <Route path="/task-submission/:taskId" element={<TaskSubmission />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />

@@ -14,12 +14,12 @@ export const Spinner: React.FC<{ size?: 'sm' | 'md' | 'lg'; className?: string }
   const spinnerSize = sizeClasses[size];
 
   return (
-    <div className={`animate-spin ${spinnerSize} text-primary ${className}`}>
+    <div className={`inline-block animate-spin ${spinnerSize} ${className}`} role="status">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
-        className="w-full h-full"
+        className="w-full h-full text-gray-200 dark:text-gray-600"
       >
         <circle
           className="opacity-25"
