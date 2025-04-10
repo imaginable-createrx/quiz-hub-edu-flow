@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,15 +14,6 @@ const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   const { tests, submissions } = useTestData();
   const location = useLocation();
-
-  // If we're on a sub-route, render the Outlet component
-  if (location.pathname !== '/student-dashboard') {
-    return (
-      <MainLayout>
-        <Outlet />
-      </MainLayout>
-    );
-  }
 
   // Calculate progress stats
   const studentSubmissions = user ? submissions.filter(sub => sub.studentId === user.id) : [];

@@ -28,14 +28,20 @@ function App() {
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/student-dashboard/*" element={<StudentDashboard />} />
-              <Route path="/teacher-dashboard/*" element={<TeacherDashboard />} />
-              <Route path="/take-test/:testId" element={<TakeTest />} />
-              <Route path="/test-result/:submissionId" element={<TestResult />} />
+              
+              {/* Student routes */}
+              <Route path="/student-dashboard" element={<StudentDashboard />} />
+              <Route path="/student-dashboard/take-test/:testId" element={<TakeTest />} />
+              <Route path="/student-dashboard/result/:submissionId" element={<TestResult />} />
+              <Route path="/task-submission/:taskId" element={<TaskSubmission />} />
+              
+              {/* Teacher routes */}
+              <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
               <Route path="/teacher-dashboard/upload-test" element={<UploadTest />} />
               <Route path="/teacher-dashboard/grade-submission/:submissionId" element={<GradeSubmission />} />
               <Route path="/teacher-dashboard/create-task" element={<CreateTask />} />
-              <Route path="/task-submission/:taskId" element={<TaskSubmission />} />
+              
+              {/* Catch all */}
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />

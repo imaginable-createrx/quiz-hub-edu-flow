@@ -26,10 +26,27 @@ interface DeleteTestButtonProps {
 const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, pdfUrl }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { deleteTest } = useTestData();
+  
+  // Check for context availability to prevent errors
+  let deleteTestFunction;
+  try {
+    const { deleteTest } = useTestData();
+    deleteTestFunction = deleteTest;
+  } catch (error) {
+    console.error('TestDataContext not available:', error);
+    toast.error('Unable to access test data context');
+    // We'll handle this in the handleDelete function
+  }
 
   const handleDelete = async () => {
     try {
+      // Safety check - if context is not available, show error
+      if (!deleteTestFunction) {
+        toast.error('TestDataContext is not available. Cannot delete test.');
+        setIsOpen(false);
+        return;
+      }
+
       setIsDeleting(true);
       console.log('Starting deletion process for test:', testId);
 
@@ -76,7 +93,7 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
       }
 
       // 3. Finally call the context method to delete the test (which handles PDF deletion)
-      const success = await deleteTest(testId);
+      const success = await deleteTestFunction(testId);
       
       if (success) {
         toast.success(`Test "${testTitle}" deleted successfully`);
