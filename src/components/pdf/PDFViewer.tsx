@@ -82,6 +82,13 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   };
 
+  // Memoize options to avoid unnecessary re-renders
+  const pdfOptions = React.useMemo(() => ({
+    cMapUrl: 'https://unpkg.com/pdfjs-dist@3.4.120/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.4.120/standard_fonts/'
+  }), []);
+
   if (pdfError && retryCount >= 3) {
     return (
       <div className="text-center py-8">
@@ -136,16 +143,12 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
               </div>
             }
             className="mx-auto"
-            options={{
-              cMapUrl: 'https://unpkg.com/pdfjs-dist@3.4.120/cmaps/',
-              cMapPacked: true,
-              standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.4.120/standard_fonts/'
-            }}
+            options={pdfOptions}
           >
             {!loadingPdf && (
               <Page 
                 pageNumber={pageNumber} 
-                renderTextLayer={true}
+                renderTextLayer={false} // Disable the text layer that's causing the error
                 renderAnnotationLayer={true}
                 scale={1.2}
                 className="mx-auto shadow-md"

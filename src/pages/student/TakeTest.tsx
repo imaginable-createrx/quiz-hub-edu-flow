@@ -21,6 +21,7 @@ const TakeTest: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [contextError, setContextError] = useState<string | null>(null);
   const [pdfLoadingSuccess, setPdfLoadingSuccess] = useState(false);
+  const [pdfError, setPdfError] = useState<Error | null>(null);
   
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -190,6 +191,13 @@ const TakeTest: React.FC = () => {
     toast.success(`Answer for question ${questionNumber} uploaded successfully!`);
   };
   
+  // Handle PDF errors
+  const handlePdfError = (error: Error) => {
+    console.error("PDF failed to load:", error);
+    setPdfError(error);
+    toast.error(`Failed to load test PDF: ${error.message}`);
+  };
+  
   if (contextError) {
     return (
       <MainLayout>
@@ -272,6 +280,7 @@ const TakeTest: React.FC = () => {
               <p><strong>Test ID:</strong> {testId}</p>
               <p><strong>PDF URL:</strong> {test.pdfUrl}</p>
               <p><strong>PDF Loaded:</strong> {pdfLoadingSuccess ? 'Yes' : 'No'}</p>
+              {pdfError && <p><strong>PDF Error:</strong> {pdfError.message}</p>}
             </CardContent>
           </Card>
         )}
@@ -289,10 +298,7 @@ const TakeTest: React.FC = () => {
               <PDFViewer 
                 pdfUrl={test.pdfUrl}
                 onLoadSuccess={() => setPdfLoadingSuccess(true)}
-                onLoadError={(error) => {
-                  console.error("PDF failed to load:", error);
-                  toast.error(`Failed to load test PDF: ${error.message}`);
-                }}
+                onLoadError={handlePdfError}
               />
             </div>
           </CardContent>
