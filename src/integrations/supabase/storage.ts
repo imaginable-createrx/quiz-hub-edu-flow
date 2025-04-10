@@ -47,13 +47,10 @@ export const deleteFile = async (
     // Extract just the filename from the URL if it's a full URL
     let pathToDelete = filePath;
     if (filePath.includes('https://')) {
-      const url = new URL(filePath);
-      const pathname = url.pathname;
-      const parts = pathname.split('/');
-      // The last part after the bucket name should be the file name
-      const bucketIndex = parts.findIndex(part => part === bucketName);
-      if (bucketIndex >= 0 && bucketIndex < parts.length - 1) {
-        pathToDelete = parts.slice(bucketIndex + 1).join('/');
+      // Get just the filename from the URL
+      const filename = filePath.split('/').pop();
+      if (filename) {
+        pathToDelete = filename;
       }
     }
     

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Test, Submission, AnswerImage } from '@/types';
 import { useAuth } from '@/context/AuthContext';
@@ -285,7 +286,9 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return false;
       }
 
-      // Get test files to delete from storage
+      console.log('Starting test deletion process for test:', testId);
+
+      // 1. Get test files to delete from storage
       const { data: testFiles, error: filesError } = await supabase
         .from('test_files')
         .select('file_path, file_name')
@@ -293,30 +296,38 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (filesError) {
         console.error('Error fetching test files:', filesError);
+        throw new Error(`Failed to fetch test files: ${filesError.message}`);
       }
 
-      // Delete the test from the database
+      // 2. Delete any submissions for this test
+      const { error: submissionsError } = await supabase
+        .from('submissions')
+        .delete()
+        .eq('test_id', testId);
+
+      if (submissionsError) {
+        console.error('Error deleting test submissions:', submissionsError);
+        // Continue anyway, we still want to delete the test
+      }
+
+      // 3. Delete the test from the database
       const { error: deleteError } = await supabase
         .from('tests')
         .delete()
         .eq('id', testId);
 
       if (deleteError) {
-        throw deleteError;
+        throw new Error(`Failed to delete test record: ${deleteError.message}`);
       }
 
-      // Delete files from storage if there are any
+      // 4. Delete files from storage if there are any
       if (testFiles && testFiles.length > 0) {
         for (const file of testFiles) {
-          // Extract just the filename from the URL
-          const filePathParts = file.file_path.split('/');
-          const filePath = filePathParts[filePathParts.length - 1];
-          
-          await deleteFile('test_files', filePath);
+          await deleteFile('test_files', file.file_path);
         }
       }
 
-      // Update local state
+      // 5. Update local state
       setTests(prev => prev.filter(t => t.id !== testId));
       
       toast.success('Test deleted successfully!');

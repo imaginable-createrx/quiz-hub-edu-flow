@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DeleteTestButtonProps {
   testId: string;
@@ -30,13 +31,61 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
+      console.log('Starting deletion process for test:', testId);
+
+      // 1. First delete all submissions related to this test
+      const { error: subError } = await supabase
+        .from('submissions')
+        .delete()
+        .eq('test_id', testId);
+
+      if (subError) {
+        console.error('Error deleting test submissions:', subError);
+        throw new Error(`Failed to delete test submissions: ${subError.message}`);
+      }
+      
+      // 2. Get the list of answer images to delete
+      const { data: answerImagesData } = await supabase
+        .from('answer_images')
+        .select('*')
+        .eq('submission_id', testId);
+
+      if (answerImagesData && answerImagesData.length > 0) {
+        // Delete the answer images from storage
+        for (const image of answerImagesData) {
+          if (image.image_path) {
+            const { error: storageError } = await supabase.storage
+              .from('answer_images')
+              .remove([image.image_path.split('/').pop() || '']);
+            
+            if (storageError) {
+              console.error('Error deleting answer image from storage:', storageError);
+            }
+          }
+        }
+
+        // Delete answer images records
+        const { error: imagesError } = await supabase
+          .from('answer_images')
+          .delete()
+          .eq('submission_id', testId);
+
+        if (imagesError) {
+          console.error('Error deleting answer images records:', imagesError);
+        }
+      }
+
+      // 3. Finally call the context method to delete the test (which handles PDF deletion)
       const success = await deleteTest(testId);
+      
       if (success) {
         toast.success(`Test "${testTitle}" deleted successfully`);
+      } else {
+        throw new Error('Delete test operation failed');
       }
     } catch (error) {
       console.error('Error deleting test:', error);
-      toast.error('Failed to delete test');
+      toast.error('Failed to delete test: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsDeleting(false);
       setIsOpen(false);
