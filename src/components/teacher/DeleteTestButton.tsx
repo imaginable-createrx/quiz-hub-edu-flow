@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
@@ -16,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { deleteFile } from '@/integrations/supabase/storage';
+import { deleteFile, BucketName } from '@/integrations/supabase/storage';
 
 interface DeleteTestButtonProps {
   testId: string;
@@ -63,8 +62,8 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
 
       // Handle PDF deletion from storage if it exists and is not the placeholder
       if (pdfUrl && pdfUrl !== '/placeholder.svg') {
-        // Use the storage helper with the correct bucket type
-        const deleteResult = await deleteFile('test_files' as 'test_files' | 'answer_images' | 'task_attachments', pdfUrl);
+        // Use the proper bucket type
+        const deleteResult = await deleteFile('test_files', pdfUrl);
         
         if (!deleteResult) {
           console.error('Warning: Could not delete PDF from storage:', pdfUrl);

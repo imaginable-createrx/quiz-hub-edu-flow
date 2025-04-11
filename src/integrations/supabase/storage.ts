@@ -1,9 +1,12 @@
 
 import { supabase } from './client';
 
+// Define the valid bucket types
+export type BucketName = 'test_files' | 'answer_images' | 'task_attachments';
+
 // Helper function to upload a file to a bucket
 export const uploadFile = async (
-  bucketName: 'test_files' | 'answer_images' | 'task_attachments', 
+  bucketName: BucketName, 
   filePath: string, 
   file: File
 ): Promise<string | null> => {
@@ -38,7 +41,7 @@ export const uploadFile = async (
 
 // Delete a file from a bucket
 export const deleteFile = async (
-  bucketName: 'test_files' | 'answer_images' | 'task_attachments',
+  bucketName: BucketName,
   filePath: string
 ): Promise<boolean> => {
   try {
@@ -75,7 +78,7 @@ export const deleteFile = async (
 
 // List all files in a bucket
 export const listFiles = async (
-  bucketName: 'test_files' | 'answer_images' | 'task_attachments',
+  bucketName: BucketName,
   path?: string
 ): Promise<string[] | null> => {
   try {
