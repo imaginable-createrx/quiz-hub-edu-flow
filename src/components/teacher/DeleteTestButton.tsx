@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { deleteFile } from '@/integrations/supabase/storage';
 
 interface DeleteTestButtonProps {
   testId: string;
@@ -60,24 +61,16 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
 
       console.log('Database deletion result:', data);
 
-      // Handle PDF deletion from storage
+      // Handle PDF deletion from storage if it exists and is not the placeholder
       if (pdfUrl && pdfUrl !== '/placeholder.svg') {
-        // Extract filename from the URL
-        const fileName = pdfUrl.split('/').pop();
+        // Instead of manually extracting the filename, use the storage helper
+        const deleteResult = await deleteFile('test_files', pdfUrl);
         
-        if (fileName) {
-          console.log('Attempting to delete PDF file:', fileName);
-          
-          const { error: storageError } = await supabase.storage
-            .from('test_files')
-            .remove([fileName]);
-          
-          if (storageError) {
-            console.error('Error deleting PDF from storage:', storageError);
-            // Continue anyway, since the database records are deleted
-          } else {
-            console.log('Successfully deleted PDF from storage');
-          }
+        if (!deleteResult) {
+          console.error('Warning: Could not delete PDF from storage:', pdfUrl);
+          // Continue anyway, since the database records are deleted
+        } else {
+          console.log('Successfully deleted PDF from storage');
         }
       }
 
