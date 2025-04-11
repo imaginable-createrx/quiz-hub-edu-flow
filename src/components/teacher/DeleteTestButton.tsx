@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
@@ -62,8 +63,8 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
 
       // Handle PDF deletion from storage if it exists and is not the placeholder
       if (pdfUrl && pdfUrl !== '/placeholder.svg') {
-        // Use the proper bucket type
-        const deleteResult = await deleteFile('test_files', pdfUrl);
+        const bucketName: BucketName = 'test_files';
+        const deleteResult = await deleteFile(bucketName, pdfUrl);
         
         if (!deleteResult) {
           console.error('Warning: Could not delete PDF from storage:', pdfUrl);
