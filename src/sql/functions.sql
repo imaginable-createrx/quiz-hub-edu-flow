@@ -186,3 +186,58 @@ BEGIN
   WHERE id = p_submission_id;
 END;
 $$;
+
+-- Function to delete a test with all related files and submissions
+CREATE OR REPLACE FUNCTION public.delete_test_complete(
+  p_test_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE PLPGSQL
+SECURITY DEFINER
+AS $$
+DECLARE
+  file_record RECORD;
+BEGIN
+  -- Delete all answer images related to submissions for this test
+  FOR file_record IN (
+    SELECT ai.image_path 
+    FROM answer_images ai
+    JOIN submissions s ON s.id = ai.submission_id
+    WHERE s.test_id = p_test_id
+  ) LOOP
+    -- Note: The actual file deletion from storage should be handled in the application code
+    DELETE FROM answer_images 
+    WHERE image_path = file_record.image_path;
+  END LOOP;
+  
+  -- Delete all submissions for this test
+  DELETE FROM submissions WHERE test_id = p_test_id;
+  
+  -- Delete test files
+  DELETE FROM test_files WHERE test_id = p_test_id;
+  
+  -- Finally delete the test itself
+  DELETE FROM tests WHERE id = p_test_id;
+  
+  RETURN FOUND;
+END;
+$$;
+
+-- Function to delete a task with all related submissions
+CREATE OR REPLACE FUNCTION public.delete_task_complete(
+  p_task_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE PLPGSQL
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Delete all task submissions for this task
+  DELETE FROM task_submissions WHERE task_id = p_task_id;
+  
+  -- Delete the task itself
+  DELETE FROM tasks WHERE id = p_task_id;
+  
+  RETURN FOUND;
+END;
+$$;

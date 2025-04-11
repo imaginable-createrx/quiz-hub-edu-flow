@@ -35,7 +35,6 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
   } catch (error) {
     console.error('TestDataContext not available:', error);
     toast.error('Unable to access test data context');
-    // We'll handle this in the handleDelete function
   }
 
   const handleDelete = async () => {
@@ -50,49 +49,73 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
       setIsDeleting(true);
       console.log('Starting deletion process for test:', testId);
 
-      // 1. First delete all submissions related to this test
-      const { error: subError } = await supabase
+      // 1. Get submissions related to this test
+      const { data: submissionsData, error: fetchError } = await supabase
+        .from('submissions')
+        .select('id')
+        .eq('test_id', testId);
+
+      if (fetchError) {
+        console.error('Error fetching submissions:', fetchError);
+        throw new Error(`Failed to fetch submissions: ${fetchError.message}`);
+      }
+
+      // 2. For each submission, delete its answer images
+      if (submissionsData && submissionsData.length > 0) {
+        for (const submission of submissionsData) {
+          // First get all answer images for this submission
+          const { data: imagesData, error: imagesError } = await supabase
+            .from('answer_images')
+            .select('image_path')
+            .eq('submission_id', submission.id);
+
+          if (imagesError) {
+            console.error('Error fetching answer images:', imagesError);
+            continue;
+          }
+
+          // Delete images from storage
+          if (imagesData && imagesData.length > 0) {
+            for (const image of imagesData) {
+              if (image.image_path) {
+                const fileName = image.image_path.split('/').pop();
+                if (fileName) {
+                  const { error: storageError } = await supabase.storage
+                    .from('answer_images')
+                    .remove([fileName]);
+                    
+                  if (storageError) {
+                    console.error('Error deleting image from storage:', storageError);
+                  }
+                }
+              }
+            }
+          }
+
+          // Delete answer images records
+          const { error: deleteImagesError } = await supabase
+            .from('answer_images')
+            .delete()
+            .eq('submission_id', submission.id);
+
+          if (deleteImagesError) {
+            console.error('Error deleting answer images records:', deleteImagesError);
+          }
+        }
+      }
+
+      // 3. Delete all submissions for this test
+      const { error: deleteSubmissionsError } = await supabase
         .from('submissions')
         .delete()
         .eq('test_id', testId);
 
-      if (subError) {
-        console.error('Error deleting test submissions:', subError);
-        throw new Error(`Failed to delete test submissions: ${subError.message}`);
-      }
-      
-      // 2. Get the list of answer images to delete
-      const { data: answerImagesData } = await supabase
-        .from('answer_images')
-        .select('*')
-        .eq('submission_id', testId);
-
-      if (answerImagesData && answerImagesData.length > 0) {
-        // Delete the answer images from storage
-        for (const image of answerImagesData) {
-          if (image.image_path) {
-            const { error: storageError } = await supabase.storage
-              .from('answer_images')
-              .remove([image.image_path.split('/').pop() || '']);
-            
-            if (storageError) {
-              console.error('Error deleting answer image from storage:', storageError);
-            }
-          }
-        }
-
-        // Delete answer images records
-        const { error: imagesError } = await supabase
-          .from('answer_images')
-          .delete()
-          .eq('submission_id', testId);
-
-        if (imagesError) {
-          console.error('Error deleting answer images records:', imagesError);
-        }
+      if (deleteSubmissionsError) {
+        console.error('Error deleting submissions:', deleteSubmissionsError);
+        throw new Error(`Failed to delete submissions: ${deleteSubmissionsError.message}`);
       }
 
-      // 3. Finally call the context method to delete the test (which handles PDF deletion)
+      // 4. Call the context method to delete the test itself (which handles PDF deletion)
       const success = await deleteTestFunction(testId);
       
       if (success) {
