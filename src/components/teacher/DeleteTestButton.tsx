@@ -63,8 +63,8 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
 
       // Handle PDF deletion from storage if it exists and is not the placeholder
       if (pdfUrl && pdfUrl !== '/placeholder.svg') {
-        // Instead of manually extracting the filename, use the storage helper
-        const deleteResult = await deleteFile('test_files', pdfUrl);
+        // Use the storage helper with the correct bucket type
+        const deleteResult = await deleteFile('test_files' as 'test_files' | 'answer_images' | 'task_attachments', pdfUrl);
         
         if (!deleteResult) {
           console.error('Warning: Could not delete PDF from storage:', pdfUrl);
