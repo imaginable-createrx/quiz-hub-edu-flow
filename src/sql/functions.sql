@@ -200,21 +200,28 @@ DECLARE
 BEGIN
   -- Delete all answer images related to submissions for this test
   FOR file_record IN (
-    SELECT ai.image_path 
+    SELECT ai.image_path, ai.id
     FROM answer_images ai
     JOIN submissions s ON s.id = ai.submission_id
     WHERE s.test_id = p_test_id
   ) LOOP
     -- Note: The actual file deletion from storage should be handled in the application code
     DELETE FROM answer_images 
-    WHERE image_path = file_record.image_path;
+    WHERE id = file_record.id;
   END LOOP;
   
   -- Delete all submissions for this test
   DELETE FROM submissions WHERE test_id = p_test_id;
   
-  -- Delete test files
-  DELETE FROM test_files WHERE test_id = p_test_id;
+  -- Get test files before deleting them (for storage cleanup)
+  FOR file_record IN (
+    SELECT file_path, id
+    FROM test_files 
+    WHERE test_id = p_test_id
+  ) LOOP
+    -- Delete file records
+    DELETE FROM test_files WHERE id = file_record.id;
+  END LOOP;
   
   -- Finally delete the test itself
   DELETE FROM tests WHERE id = p_test_id;
@@ -231,9 +238,18 @@ RETURNS BOOLEAN
 LANGUAGE PLPGSQL
 SECURITY DEFINER
 AS $$
+DECLARE
+  file_record RECORD;
 BEGIN
-  -- Delete all task submissions for this task
-  DELETE FROM task_submissions WHERE task_id = p_task_id;
+  -- Get task submissions for file cleanup
+  FOR file_record IN (
+    SELECT attachment_url, id
+    FROM task_submissions
+    WHERE task_id = p_task_id
+  ) LOOP
+    -- Delete task submission record
+    DELETE FROM task_submissions WHERE id = file_record.id;
+  END LOOP;
   
   -- Delete the task itself
   DELETE FROM tasks WHERE id = p_task_id;

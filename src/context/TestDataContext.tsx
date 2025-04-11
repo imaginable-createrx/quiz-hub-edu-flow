@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Test, Submission, AnswerImage } from '@/types';
 import { useAuth } from '@/context/AuthContext';
@@ -288,53 +287,17 @@ export const TestDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       console.log('Starting test deletion process for test:', testId);
 
-      // 1. Get test files to delete from storage
-      const { data: testFiles, error: filesError } = await supabase
-        .from('test_files')
-        .select('file_path, file_name')
-        .eq('test_id', testId);
-
-      if (filesError) {
-        console.error('Error fetching test files:', filesError);
-        throw new Error(`Failed to fetch test files: ${filesError.message}`);
-      }
-
-      // 2. Delete any submissions for this test
-      const { error: submissionsError } = await supabase
-        .from('submissions')
-        .delete()
-        .eq('test_id', testId);
-
-      if (submissionsError) {
-        console.error('Error deleting test submissions:', submissionsError);
-        // Continue anyway, we still want to delete the test
-      }
-
-      // 3. Delete the test from the database
-      const { error: deleteError } = await supabase
-        .from('tests')
-        .delete()
-        .eq('id', testId);
-
-      if (deleteError) {
-        throw new Error(`Failed to delete test record: ${deleteError.message}`);
-      }
-
-      // 4. Delete files from storage if there are any
-      if (testFiles && testFiles.length > 0) {
-        for (const file of testFiles) {
-          await deleteFile('test_files', file.file_path);
-        }
-      }
-
-      // 5. Update local state
+      // The actual deletion is now handled by the database function
+      // We only need to update the local state
       setTests(prev => prev.filter(t => t.id !== testId));
       
-      toast.success('Test deleted successfully!');
+      // Also remove any submissions related to this test to keep UI in sync
+      setSubmissions(prev => prev.filter(s => s.testId !== testId));
+      
       return true;
     } catch (error) {
-      console.error('Error deleting test:', error);
-      toast.error('Failed to delete test: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Error in deleteTest context function:', error);
+      toast.error('Failed to update UI after test deletion: ' + (error instanceof Error ? error.message : 'Unknown error'));
       return false;
     }
   };

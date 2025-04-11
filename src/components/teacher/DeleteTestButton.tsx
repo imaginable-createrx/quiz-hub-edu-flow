@@ -49,80 +49,41 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
       setIsDeleting(true);
       console.log('Starting deletion process for test:', testId);
 
-      // 1. Get submissions related to this test
-      const { data: submissionsData, error: fetchError } = await supabase
-        .from('submissions')
-        .select('id')
-        .eq('test_id', testId);
+      // Call the database function to delete all test data
+      const { data, error } = await supabase
+        .rpc('delete_test_complete', { p_test_id: testId });
 
-      if (fetchError) {
-        console.error('Error fetching submissions:', fetchError);
-        throw new Error(`Failed to fetch submissions: ${fetchError.message}`);
+      if (error) {
+        console.error('Error calling delete_test_complete function:', error);
+        throw new Error(`Failed to delete test data: ${error.message}`);
       }
 
-      // 2. For each submission, delete its answer images
-      if (submissionsData && submissionsData.length > 0) {
-        for (const submission of submissionsData) {
-          // First get all answer images for this submission
-          const { data: imagesData, error: imagesError } = await supabase
-            .from('answer_images')
-            .select('image_path')
-            .eq('submission_id', submission.id);
+      console.log('Database deletion result:', data);
 
-          if (imagesError) {
-            console.error('Error fetching answer images:', imagesError);
-            continue;
-          }
-
-          // Delete images from storage
-          if (imagesData && imagesData.length > 0) {
-            for (const image of imagesData) {
-              if (image.image_path) {
-                const fileName = image.image_path.split('/').pop();
-                if (fileName) {
-                  const { error: storageError } = await supabase.storage
-                    .from('answer_images')
-                    .remove([fileName]);
-                    
-                  if (storageError) {
-                    console.error('Error deleting image from storage:', storageError);
-                  }
-                }
-              }
-            }
-          }
-
-          // Delete answer images records
-          const { error: deleteImagesError } = await supabase
-            .from('answer_images')
-            .delete()
-            .eq('submission_id', submission.id);
-
-          if (deleteImagesError) {
-            console.error('Error deleting answer images records:', deleteImagesError);
+      // Handle PDF deletion from storage
+      if (pdfUrl && pdfUrl !== '/placeholder.svg') {
+        // Extract filename from the URL
+        const fileName = pdfUrl.split('/').pop();
+        
+        if (fileName) {
+          console.log('Attempting to delete PDF file:', fileName);
+          
+          const { error: storageError } = await supabase.storage
+            .from('test_files')
+            .remove([fileName]);
+          
+          if (storageError) {
+            console.error('Error deleting PDF from storage:', storageError);
+            // Continue anyway, since the database records are deleted
+          } else {
+            console.log('Successfully deleted PDF from storage');
           }
         }
       }
 
-      // 3. Delete all submissions for this test
-      const { error: deleteSubmissionsError } = await supabase
-        .from('submissions')
-        .delete()
-        .eq('test_id', testId);
-
-      if (deleteSubmissionsError) {
-        console.error('Error deleting submissions:', deleteSubmissionsError);
-        throw new Error(`Failed to delete submissions: ${deleteSubmissionsError.message}`);
-      }
-
-      // 4. Call the context method to delete the test itself (which handles PDF deletion)
-      const success = await deleteTestFunction(testId);
-      
-      if (success) {
-        toast.success(`Test "${testTitle}" deleted successfully`);
-      } else {
-        throw new Error('Delete test operation failed');
-      }
+      // Update UI through context
+      await deleteTestFunction(testId);
+      toast.success(`Test "${testTitle}" deleted successfully`);
     } catch (error) {
       console.error('Error deleting test:', error);
       toast.error('Failed to delete test: ' + (error instanceof Error ? error.message : 'Unknown error'));
