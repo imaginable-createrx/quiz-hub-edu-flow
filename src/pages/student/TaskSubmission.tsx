@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -10,7 +11,6 @@ import { Task } from '@/types/task';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Check, FileText, AlertTriangle, Camera, Upload } from 'lucide-react';
 
 const TaskSubmission: React.FC = () => {

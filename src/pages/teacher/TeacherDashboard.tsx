@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -5,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/context/AuthContext';
 import { useTestData } from '@/context/TestDataContext';
-import { Calendar, Clock, FileText, Plus, Users, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, FileText, Plus, Users, CheckCircle, Eye } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import DeleteTestButton from '@/components/teacher/DeleteTestButton';
+import DeleteTaskButton from '@/components/teacher/DeleteTaskButton';
+import ViewTaskSubmissions from '@/components/teacher/ViewTaskSubmissions';
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from '@/components/ui/spinner';
 import { supabase, TasksResponse, TaskSubmissionResponse } from '@/integrations/supabase/client';
@@ -23,6 +26,8 @@ const TeacherDashboard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskSubmissions, setTaskSubmissions] = useState<any[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [viewSubmissionsOpen, setViewSubmissionsOpen] = useState(false);
 
   // Fetch tasks created by this teacher
   useEffect(() => {
@@ -94,6 +99,16 @@ const TeacherDashboard = () => {
     }
   }, [user, navigate]);
 
+  const openTaskSubmissions = (taskId: string) => {
+    setSelectedTaskId(taskId);
+    setViewSubmissionsOpen(true);
+  };
+
+  const closeTaskSubmissions = () => {
+    setViewSubmissionsOpen(false);
+    setSelectedTaskId(null);
+  };
+
   if (!user) {
     return null;
   }
@@ -146,7 +161,7 @@ const TeacherDashboard = () => {
           <TabsList className="mb-6">
             <TabsTrigger value="tests">My Tests</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="submissions">Student Submissions</TabsTrigger>
+            <TabsTrigger value="submissions">Test Submissions</TabsTrigger>
           </TabsList>
           
           <TabsContent value="tests" className="space-y-6">
@@ -211,40 +226,64 @@ const TeacherDashboard = () => {
               </div>
             ) : tasks.length > 0 ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {tasks.map(task => (
-                  <Card key={task.id} className="overflow-hidden">
-                    <div className="h-32 bg-muted flex items-center justify-center">
-                      <CheckCircle size={48} className="text-muted-foreground" />
-                    </div>
-                    <CardHeader className="pb-2">
-                      <CardTitle>{task.title}</CardTitle>
-                      <CardDescription className="line-clamp-2">
-                        {task.description || 'No description provided'}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-2">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar size={16} className="text-muted-foreground" />
-                          <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Users size={16} className="text-muted-foreground" />
-                          <span>{getSubmissionCountForTask(task.id)} Submissions</span>
-                        </div>
+                {tasks.map(task => {
+                  const submissionCount = getSubmissionCountForTask(task.id);
+                  
+                  return (
+                    <Card key={task.id} className="overflow-hidden">
+                      <div className="h-32 bg-muted flex items-center justify-center">
+                        <CheckCircle size={48} className="text-muted-foreground" />
                       </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-between">
-                      {task.attachmentUrl && (
-                        <Button variant="outline" asChild>
-                          <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                            View Attachment
-                          </a>
-                        </Button>
-                      )}
-                    </CardFooter>
-                  </Card>
-                ))}
+                      <CardHeader className="pb-2">
+                        <CardTitle>{task.title}</CardTitle>
+                        <CardDescription className="line-clamp-2">
+                          {task.description || 'No description provided'}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-2">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar size={16} className="text-muted-foreground" />
+                            <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Users size={16} className="text-muted-foreground" />
+                            <span>{submissionCount} Submissions</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="flex flex-wrap gap-2 justify-between">
+                        <div className="flex flex-wrap gap-2">
+                          {task.attachmentUrl && (
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                View Attachment
+                              </a>
+                            </Button>
+                          )}
+                          
+                          {submissionCount > 0 && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => openTaskSubmissions(task.id)}
+                              className="flex items-center gap-1"
+                            >
+                              <Eye size={14} />
+                              <span>View Submissions</span>
+                            </Button>
+                          )}
+                        </div>
+                        
+                        <DeleteTaskButton 
+                          taskId={task.id} 
+                          taskTitle={task.title} 
+                          attachmentUrl={task.attachmentUrl}
+                        />
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
               </div>
             ) : (
               <div className="col-span-full flex flex-col items-center justify-center p-12 text-center">
@@ -322,6 +361,15 @@ const TeacherDashboard = () => {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Task Submissions Dialog */}
+      {selectedTaskId && (
+        <ViewTaskSubmissions 
+          taskId={selectedTaskId}
+          isOpen={viewSubmissionsOpen}
+          onClose={closeTaskSubmissions}
+        />
+      )}
     </MainLayout>
   );
 };
