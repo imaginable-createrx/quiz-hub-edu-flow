@@ -4,13 +4,13 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { Spinner } from '@/components/ui/spinner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, FileX, Download, ExternalLink } from 'lucide-react';
+import { AlertTriangle, FileX, Download, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 // Set the worker source for PDF.js
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface PDFViewerProps {
   pdfUrl: string;
@@ -28,12 +28,29 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
   const [pdfError, setPdfError] = useState<Error | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
-  const documentRef = useRef<any>(null);
   const [isPlaceholder, setIsPlaceholder] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
 
+  // Create a stable reference to the Document component
+  const documentRef = useRef<any>(null);
+  
+  // Direct download link for the PDF
+  const handleDownloadPdf = () => {
+    if (pdfUrl && !isPlaceholder) {
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = pdfUrl.split('/').pop() || 'test-document.pdf';
+      link.target = '_blank';
+      link.click();
+    }
+  };
+
+  // Reset component when PDF URL changes
   useEffect(() => {
-    // Check if the URL is a placeholder
-    if (pdfUrl === '/placeholder.svg' || pdfUrl.includes('placeholder')) {
+    console.log('PDF URL changed:', pdfUrl);
+    
+    // Check if the URL is a placeholder or empty
+    if (!pdfUrl || pdfUrl === '/placeholder.svg' || pdfUrl.includes('placeholder')) {
       setIsPlaceholder(true);
       setPdfError(new Error('No PDF file has been uploaded yet'));
       setLoadingPdf(false);
@@ -47,6 +64,15 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     setPdfError(null);
     setLoadingPdf(true);
     setIsPlaceholder(false);
+    setShowFallback(false);
+    setRetryCount(0);
+    
+    // Force reload PDF component
+    if (documentRef.current) {
+      documentRef.current = null;
+    }
+    
+    console.log('Attempting to load PDF from:', pdfUrl);
   }, [pdfUrl, onLoadError]);
 
   // Handle PDF document loading
@@ -55,6 +81,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     setNumPages(numPages);
     setPdfError(null);
     setLoadingPdf(false);
+    setShowFallback(false);
     onLoadSuccess?.();
     toast.success('PDF loaded successfully');
   };
@@ -63,12 +90,16 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     console.error('Error loading PDF:', error);
     setPdfError(error);
     setLoadingPdf(false);
-    onLoadError?.(error);
+    
+    // Only trigger external error handler if we've exceeded retry attempts
+    if (retryCount >= 2) {
+      onLoadError?.(error);
+    }
   };
 
   // Retry loading PDF if it fails
   useEffect(() => {
-    if (pdfError && retryCount < 3 && !isPlaceholder) {
+    if (pdfError && retryCount < 3 && !isPlaceholder && !showFallback) {
       const retryTimer = setTimeout(() => {
         console.log(`Retrying PDF load (attempt ${retryCount + 1})...`);
         setRetryCount(prev => prev + 1);
@@ -82,8 +113,10 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
       }, 2000);
       
       return () => clearTimeout(retryTimer);
+    } else if (pdfError && retryCount >= 3 && !showFallback) {
+      setShowFallback(true);
     }
-  }, [pdfError, retryCount, isPlaceholder]);
+  }, [pdfError, retryCount, isPlaceholder, showFallback]);
 
   // PDF navigation
   const goToPrevPage = () => setPageNumber(prev => Math.max(prev - 1, 1));
@@ -107,6 +140,21 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   };
 
+  // Manual retry function for user interaction
+  const manualRetry = () => {
+    setRetryCount(0);
+    setPdfError(null);
+    setLoadingPdf(true);
+    setShowFallback(false);
+    
+    // Force document reload
+    if (documentRef.current) {
+      documentRef.current = null;
+    }
+    
+    toast.info('Trying to load PDF again...');
+  };
+
   // Render fallback for placeholder or error
   if (isPlaceholder) {
     return (
@@ -120,23 +168,24 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     );
   }
 
-  if (pdfError && retryCount >= 3) {
+  if (showFallback) {
     return (
       <div className="text-center py-8">
         <AlertTriangle size={32} className="mx-auto text-destructive mb-4" />
         <p className="text-lg font-medium mb-2">Failed to load PDF</p>
         <p className="text-sm text-muted-foreground mb-4">
-          {pdfError.message || 'There was an error loading the PDF.'}
+          {pdfError?.message || 'There was an error loading the PDF. Try viewing it directly in your browser.'}
         </p>
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">PDF URL: {pdfUrl}</p>
+          <p className="text-sm text-muted-foreground break-all max-w-full px-4">PDF URL: {pdfUrl}</p>
           <div className="flex flex-col sm:flex-row gap-2 justify-center mt-4">
             <Button 
               variant="outline" 
-              onClick={() => window.location.reload()}
+              onClick={manualRetry}
               className="flex items-center gap-2"
             >
-              Reload Page
+              <RefreshCw size={16} />
+              Retry Loading
             </Button>
             {!isPlaceholder && (
               <Button 
@@ -148,17 +197,16 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
                 Open in Browser
               </Button>
             )}
-            <Button 
-              variant="secondary"
-              onClick={() => {
-                setRetryCount(0);
-                setPdfError(null);
-                setLoadingPdf(true);
-              }}
-              className="flex items-center gap-2"
-            >
-              Try Again
-            </Button>
+            {!isPlaceholder && (
+              <Button 
+                variant="secondary"
+                onClick={handleDownloadPdf}
+                className="flex items-center gap-2"
+              >
+                <Download size={16} />
+                Download PDF
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -186,10 +234,10 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
             className="mx-auto"
             options={pdfOptions}
           >
-            {!loadingPdf && (
+            {!loadingPdf && numPages !== null && (
               <Page 
                 pageNumber={pageNumber} 
-                renderTextLayer={false} // Disable the text layer that's causing the error
+                renderTextLayer={true}
                 renderAnnotationLayer={true}
                 scale={1.2}
                 className="mx-auto shadow-md"
@@ -197,6 +245,14 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
                   <div className="text-center p-4 bg-muted/20 rounded-md">
                     <AlertTriangle className="mx-auto text-amber-500 mb-2 h-8 w-8" />
                     <p>Error rendering page {pageNumber}</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={manualRetry}
+                    >
+                      Retry
+                    </Button>
                   </div>
                 }
               />
@@ -214,9 +270,19 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
           >
             Previous Page
           </Button>
-          <p className="text-sm">
-            Page {pageNumber} of {numPages}
-          </p>
+          <div className="flex gap-2">
+            <p className="text-sm">
+              Page {pageNumber} of {numPages}
+            </p>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={openPdfInNewTab}
+              title="Open PDF in new tab"
+            >
+              <ExternalLink size={16} />
+            </Button>
+          </div>
           <Button 
             variant="outline" 
             onClick={goToNextPage} 
