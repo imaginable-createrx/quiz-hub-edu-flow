@@ -45,7 +45,7 @@ const DeleteTaskButton: React.FC<DeleteTaskButtonProps> = ({ taskId, taskTitle, 
 
       // Handle attachment deletion from storage if it exists
       if (attachmentUrl && attachmentUrl !== '/placeholder.svg') {
-        // Explicitly type the bucket name to match the BucketName type
+        // Specify the bucket name explicitly as a valid BucketName type
         const bucketName: BucketName = 'task_attachments';
         const deleteResult = await deleteFile(bucketName, attachmentUrl);
         

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/context/AuthContext';
 import { useTestData } from '@/context/TestDataContext';
-import { Plus, Spinner } from 'lucide-react';
+import { Plus, Loader } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { supabase, TaskSubmissionResponse } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import TestsList from '@/components/teacher/TestsList';
 import TasksList from '@/components/teacher/TasksList';
 import SubmissionsList from '@/components/teacher/SubmissionsList';
+import { Spinner } from '@/components/ui/spinner';
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
