@@ -268,7 +268,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      delete_task_complete: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
+      delete_test_complete: {
+        Args: { p_test_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
