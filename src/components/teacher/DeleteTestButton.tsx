@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
-import { useTestData } from '@/context/TestDataContext';
 import { Spinner } from '@/components/ui/spinner';
 import {
   AlertDialog,
@@ -16,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useTestData } from '@/context/TestDataContext';
 import { deleteFile, BucketName } from '@/integrations/supabase/storage';
 
 interface DeleteTestButtonProps {
@@ -27,26 +27,10 @@ interface DeleteTestButtonProps {
 const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, pdfUrl }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Check for context availability to prevent errors
-  let deleteTestFunction;
-  try {
-    const { deleteTest } = useTestData();
-    deleteTestFunction = deleteTest;
-  } catch (error) {
-    console.error('TestDataContext not available:', error);
-    toast.error('Unable to access test data context');
-  }
+  const { deleteTest } = useTestData();
 
   const handleDelete = async () => {
     try {
-      // Safety check - if context is not available, show error
-      if (!deleteTestFunction) {
-        toast.error('TestDataContext is not available. Cannot delete test.');
-        setIsOpen(false);
-        return;
-      }
-
       setIsDeleting(true);
       console.log('Starting deletion process for test:', testId);
 
@@ -61,7 +45,7 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
 
       console.log('Database deletion result:', data);
 
-      // Handle PDF deletion from storage if it exists and is not the placeholder
+      // Delete the PDF file from storage if it exists and isn't a placeholder
       if (pdfUrl && pdfUrl !== '/placeholder.svg') {
         // Explicitly type the bucket name to match the BucketName type
         const bucketName: BucketName = 'test_files';
@@ -75,12 +59,20 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
         }
       }
 
-      // Update UI through context
-      await deleteTestFunction(testId);
+      // Update state in the TestDataContext
+      const success = await deleteTest(testId);
+      if (!success) {
+        console.warn('Failed to update local state after test deletion');
+      }
+
       toast.success(`Test "${testTitle}" deleted successfully`);
+      
+      // Return true to signal successful deletion to parent component
+      return true;
     } catch (error) {
       console.error('Error deleting test:', error);
       toast.error('Failed to delete test: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      return false;
     } finally {
       setIsDeleting(false);
       setIsOpen(false);
@@ -105,7 +97,7 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
             <AlertDialogTitle>Delete Test</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete "{testTitle}"? This action cannot be undone.
-              All test submissions and files will also be deleted.
+              All submissions for this test will also be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -113,7 +105,12 @@ const DeleteTestButton: React.FC<DeleteTestButtonProps> = ({ testId, testTitle, 
             <AlertDialogAction 
               onClick={(e) => {
                 e.preventDefault();
-                handleDelete();
+                handleDelete().then(success => {
+                  if (success) {
+                    // Force refresh the page to update the test list
+                    window.location.reload();
+                  }
+                });
               }}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
