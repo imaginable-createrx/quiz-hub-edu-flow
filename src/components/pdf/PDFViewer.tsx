@@ -4,7 +4,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { Spinner } from '@/components/ui/spinner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, FileX, Download, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -29,14 +29,25 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
   const [loadingPdf, setLoadingPdf] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const documentRef = useRef<any>(null);
+  const [isPlaceholder, setIsPlaceholder] = useState(false);
 
   useEffect(() => {
+    // Check if the URL is a placeholder
+    if (pdfUrl === '/placeholder.svg' || pdfUrl.includes('placeholder')) {
+      setIsPlaceholder(true);
+      setPdfError(new Error('No PDF file has been uploaded yet'));
+      setLoadingPdf(false);
+      onLoadError?.(new Error('No PDF file has been uploaded yet'));
+      return;
+    }
+
     // Reset state when PDF URL changes
     setNumPages(null);
     setPageNumber(1);
     setPdfError(null);
     setLoadingPdf(true);
-  }, [pdfUrl]);
+    setIsPlaceholder(false);
+  }, [pdfUrl, onLoadError]);
 
   // Handle PDF document loading
   const handleDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -57,7 +68,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
 
   // Retry loading PDF if it fails
   useEffect(() => {
-    if (pdfError && retryCount < 3) {
+    if (pdfError && retryCount < 3 && !isPlaceholder) {
       const retryTimer = setTimeout(() => {
         console.log(`Retrying PDF load (attempt ${retryCount + 1})...`);
         setRetryCount(prev => prev + 1);
@@ -72,7 +83,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
       
       return () => clearTimeout(retryTimer);
     }
-  }, [pdfError, retryCount]);
+  }, [pdfError, retryCount, isPlaceholder]);
 
   // PDF navigation
   const goToPrevPage = () => setPageNumber(prev => Math.max(prev - 1, 1));
@@ -89,6 +100,26 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
     standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.4.120/standard_fonts/'
   }), []);
 
+  // Open the PDF in a new tab
+  const openPdfInNewTab = () => {
+    if (pdfUrl && !isPlaceholder) {
+      window.open(pdfUrl, '_blank');
+    }
+  };
+
+  // Render fallback for placeholder or error
+  if (isPlaceholder) {
+    return (
+      <div className="bg-white rounded-md p-8 text-center">
+        <FileX size={64} className="mx-auto text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium mb-2">No PDF Available</h3>
+        <p className="text-muted-foreground mb-6">
+          The test PDF has not been uploaded yet or is unavailable.
+        </p>
+      </div>
+    );
+  }
+
   if (pdfError && retryCount >= 3) {
     return (
       <div className="text-center py-8">
@@ -99,14 +130,24 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
         </p>
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">PDF URL: {pdfUrl}</p>
-          <Button 
-            variant="outline" 
-            onClick={() => window.location.reload()}
-            className="mx-auto"
-          >
-            Reload Page
-          </Button>
-          <div className="mt-4">
+          <div className="flex flex-col sm:flex-row gap-2 justify-center mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()}
+              className="flex items-center gap-2"
+            >
+              Reload Page
+            </Button>
+            {!isPlaceholder && (
+              <Button 
+                variant="secondary"
+                onClick={openPdfInNewTab}
+                className="flex items-center gap-2"
+              >
+                <ExternalLink size={16} />
+                Open in Browser
+              </Button>
+            )}
             <Button 
               variant="secondary"
               onClick={() => {
@@ -114,7 +155,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({
                 setPdfError(null);
                 setLoadingPdf(true);
               }}
-              className="mx-auto"
+              className="flex items-center gap-2"
             >
               Try Again
             </Button>

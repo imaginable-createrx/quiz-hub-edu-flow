@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useAuth } from '@/context/AuthContext';
 import { useTestData } from '@/context/TestDataContext';
 import { toast } from 'sonner';
-import { Clock, AlertTriangle, Camera, FileText } from 'lucide-react';
+import { Clock, AlertTriangle, Camera, FileText, RefreshCw } from 'lucide-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Spinner } from '@/components/ui/spinner';
 import PDFViewer from '@/components/pdf/PDFViewer';
@@ -22,6 +22,7 @@ const TakeTest: React.FC = () => {
   const [contextError, setContextError] = useState<string | null>(null);
   const [pdfLoadingSuccess, setPdfLoadingSuccess] = useState(false);
   const [pdfError, setPdfError] = useState<Error | null>(null);
+  const [refreshingTest, setRefreshingTest] = useState(false);
   
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -83,10 +84,11 @@ const TakeTest: React.FC = () => {
       // Initialize timer
       setTimeLeft(currentTest.durationMinutes * 60);
       setLoading(false);
+      setRefreshingTest(false);
     };
     
     initTest();
-  }, [testId, tests, getTestById, contextError]);
+  }, [testId, tests, getTestById, contextError, refreshingTest]);
   
   // Timer countdown
   useEffect(() => {
@@ -197,6 +199,16 @@ const TakeTest: React.FC = () => {
     setPdfError(error);
     toast.error(`Failed to load test PDF: ${error.message}`);
   };
+
+  // Refresh the current test data
+  const handleRefreshTest = () => {
+    if (!testId) return;
+    
+    setRefreshingTest(true);
+    setPdfError(null);
+    setPdfLoadingSuccess(false);
+    toast.info("Refreshing test data...");
+  };
   
   if (contextError) {
     return (
@@ -281,6 +293,17 @@ const TakeTest: React.FC = () => {
               <p><strong>PDF URL:</strong> {test.pdfUrl}</p>
               <p><strong>PDF Loaded:</strong> {pdfLoadingSuccess ? 'Yes' : 'No'}</p>
               {pdfError && <p><strong>PDF Error:</strong> {pdfError.message}</p>}
+              <div className="mt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleRefreshTest}
+                  className="flex items-center gap-1 text-xs h-7"
+                >
+                  <RefreshCw size={12} />
+                  Refresh Test Data
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
