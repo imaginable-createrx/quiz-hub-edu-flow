@@ -16,7 +16,10 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useTestData } from '@/context/TestDataContext';
-import { deleteFile, BucketName } from '@/integrations/supabase/storage';
+import { deleteFile } from '@/integrations/supabase/storage';
+
+// Import the BucketName type
+import type { BucketName } from '@/integrations/supabase/storage';
 
 interface DeleteTestButtonProps {
   testId: string;

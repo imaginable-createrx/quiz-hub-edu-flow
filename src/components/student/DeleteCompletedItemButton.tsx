@@ -15,58 +15,48 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { deleteFile } from '@/integrations/supabase/storage';
 
-// Import the BucketName type
-import type { BucketName } from '@/integrations/supabase/storage';
-
-interface DeleteTaskButtonProps {
-  taskId: string;
-  taskTitle: string;
-  attachmentUrl?: string;
+interface DeleteCompletedItemButtonProps {
+  id: string;
+  title: string;
+  type: 'test' | 'task';
 }
 
-const DeleteTaskButton: React.FC<DeleteTaskButtonProps> = ({ taskId, taskTitle, attachmentUrl }) => {
+const DeleteCompletedItemButton: React.FC<DeleteCompletedItemButtonProps> = ({ id, title, type }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
-      console.log('Starting deletion process for task:', taskId);
+      console.log(`Starting deletion process for ${type}:`, id);
 
-      // Call the database function to delete all task data
-      const { data, error } = await supabase
-        .rpc('delete_task_complete', { p_task_id: taskId });
-
-      if (error) {
-        console.error('Error calling delete_task_complete function:', error);
-        throw new Error(`Failed to delete task data: ${error.message}`);
+      // Call the appropriate database function to delete the record
+      let result;
+      if (type === 'test') {
+        // Delete test submission record
+        result = await supabase
+          .from('submissions')
+          .delete()
+          .eq('id', id);
+      } else {
+        // Delete task submission record
+        result = await supabase
+          .from('task_submissions')
+          .delete()
+          .eq('id', id);
       }
 
-      console.log('Database deletion result:', data);
-
-      // Handle attachment deletion from storage if it exists
-      if (attachmentUrl && attachmentUrl !== '/placeholder.svg') {
-        // Specify the bucket name explicitly as a valid BucketName type
-        const bucketName: BucketName = 'task_attachments';
-        const deleteResult = await deleteFile(bucketName, attachmentUrl);
-        
-        if (!deleteResult) {
-          console.error('Warning: Could not delete attachment from storage:', attachmentUrl);
-          // Continue anyway, since the database records are deleted
-        } else {
-          console.log('Successfully deleted attachment from storage');
-        }
+      if (result.error) {
+        console.error(`Error deleting ${type}:`, result.error);
+        throw new Error(`Failed to delete ${type}: ${result.error.message}`);
       }
 
-      toast.success(`Task "${taskTitle}" deleted successfully`);
-      
-      // Return true to signal successful deletion to parent component
+      toast.success(`${type === 'test' ? 'Test' : 'Task'} "${title}" removed from your history`);
       return true;
     } catch (error) {
-      console.error('Error deleting task:', error);
-      toast.error('Failed to delete task: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error(`Error deleting ${type}:`, error);
+      toast.error(`Failed to delete ${type}: ` + (error instanceof Error ? error.message : 'Unknown error'));
       return false;
     } finally {
       setIsDeleting(false);
@@ -83,16 +73,15 @@ const DeleteTaskButton: React.FC<DeleteTaskButtonProps> = ({ taskId, taskTitle, 
         className="flex items-center gap-1"
       >
         <Trash2 size={16} />
-        <span>Delete</span>
+        <span>Remove</span>
       </Button>
 
       <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Task</AlertDialogTitle>
+            <AlertDialogTitle>Remove {type === 'test' ? 'Test' : 'Task'}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{taskTitle}"? This action cannot be undone.
-              All task submissions will also be deleted.
+              Are you sure you want to remove "{title}" from your history? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -102,7 +91,7 @@ const DeleteTaskButton: React.FC<DeleteTaskButtonProps> = ({ taskId, taskTitle, 
                 e.preventDefault();
                 handleDelete().then(success => {
                   if (success) {
-                    // Force refresh the page to update the task list
+                    // Force refresh the page to update the list
                     window.location.reload();
                   }
                 });
@@ -113,10 +102,10 @@ const DeleteTaskButton: React.FC<DeleteTaskButtonProps> = ({ taskId, taskTitle, 
               {isDeleting ? (
                 <span className="flex items-center gap-2">
                   <Spinner size="sm" className="text-white" /> 
-                  Deleting...
+                  Removing...
                 </span>
               ) : (
-                'Delete'
+                'Remove'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -126,4 +115,4 @@ const DeleteTaskButton: React.FC<DeleteTaskButtonProps> = ({ taskId, taskTitle, 
   );
 };
 
-export default DeleteTaskButton;
+export default DeleteCompletedItemButton;

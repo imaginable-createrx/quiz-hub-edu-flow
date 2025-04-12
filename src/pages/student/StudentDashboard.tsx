@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, CheckCircle, Clock, Calendar, AlertTriangle } from 'lucide-react';
+import { FileText, CheckCircle, Clock, Calendar, AlertTriangle, Eye } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTestData } from '@/context/TestDataContext';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Task } from '@/types/task';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
+import DeleteCompletedItemButton from '@/components/student/DeleteCompletedItemButton';
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -247,7 +247,7 @@ const StudentDashboard: React.FC = () => {
               </div>
             )}
             
-            {/* Completed tasks section */}
+            {/* Updated completed tasks section with delete buttons */}
             {userTaskSubmissions.length > 0 && (
               <div className="mt-8">
                 <h3 className="text-lg font-medium mb-4">Completed Tasks</h3>
@@ -264,9 +264,16 @@ const StudentDashboard: React.FC = () => {
                                 Submitted: {new Date(submission.submitted_at).toLocaleDateString()}
                               </p>
                             </div>
-                            <Badge variant="outline" className="text-green-500 border-green-500">
-                              Completed
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-green-500 border-green-500">
+                                Completed
+                              </Badge>
+                              <DeleteCompletedItemButton 
+                                id={submission.id} 
+                                title={task.title} 
+                                type="task" 
+                              />
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -277,6 +284,7 @@ const StudentDashboard: React.FC = () => {
             )}
           </TabsContent>
           
+          {/* Updated results tab with delete buttons */}
           <TabsContent value="results" className="mt-6">
             <h2 className="text-xl font-semibold mb-4">Your Test Results</h2>
             
@@ -327,11 +335,19 @@ const StudentDashboard: React.FC = () => {
                           )}
                         </div>
                         
-                        <Link to={`/student-dashboard/result/${submission.id}`}>
-                          <Button variant="outline" size="sm">
-                            View Details
-                          </Button>
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link to={`/student-dashboard/result/${submission.id}`}>
+                            <Button variant="outline" size="sm" className="flex items-center gap-1">
+                              <Eye size={16} />
+                              <span>View Details</span>
+                            </Button>
+                          </Link>
+                          <DeleteCompletedItemButton 
+                            id={submission.id} 
+                            title={test?.title || 'Unknown Test'} 
+                            type="test" 
+                          />
+                        </div>
                       </div>
                     </Card>
                   );
